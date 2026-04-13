@@ -1,0 +1,27 @@
+[package]
+name = "smbx"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "smbx"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { workspace = true }
+clap = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+
+smbx-core = { workspace = true }
+smbx-net = { workspace = true }
+smbx-scanner = { workspace = true }
+smbx-fingerprint = { workspace = true }
+smbx-vuln = { workspace = true }
+smbx-exploit = { workspace = true }
+smbx-enum = { workspace = true }
+smbx-report = { workspace = true }
