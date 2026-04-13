@@ -6,6 +6,7 @@ use clap::Parser;
 use orchestrator::Orchestrator;
 use smbx_core::ExploitMode;
 use smbx_report::JsonReporter;
+use smbx_vuln::VulnCheck;
 use std::io::Write;
 
 #[tokio::main]
