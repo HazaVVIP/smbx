@@ -1,0 +1,149 @@
+# SMBX Configuration File
+# Copy this to config.toml and customize for your environment
+
+[scanner]
+# Timeout for individual host scanning (seconds)
+timeout_secs = 30
+
+# Maximum concurrent scan threads
+max_threads = 16
+
+# Timeout per port check (seconds)
+port_timeout_secs = 5
+
+# Port range (usually just 445 for SMB)
+min_port = 445
+max_port = 445
+
+[exploit]
+# Enable/disable exploitation phase
+enabled = true
+
+# Exploitation mode: "safe" (read-only), "aggressive" (probing), "destructive" (RCE)
+mode = "safe"
+
+# Automatically attempt privilege escalation after successful exploitation
+auto_pivot = false
+
+# Listen port for NTLM relay attacks (0 = auto-assign ephemeral port)
+relay_listen_port = 0
+
+# Require explicit --rce flag for RCE operations (safety feature)
+rce_require_flag = true
+
+[exploit.targets]
+# Optional whitelist of allowed targets
+# Leave empty to allow all targets
+allowed_hosts = []
+# Example:
+# allowed_hosts = ["192.168.1.100", "10.0.0.0/24"]
+
+[output]
+# Output format: "json" (machine-readable) or "text" (human-readable)
+format = "json"
+
+# Output file path (optional, defaults to stdout)
+# file = "results.json"
+
+# Verbose output with additional details
+verbose = false
+
+# Include raw data in reports (e.g., full file previews, memory dumps)
+include_raw_data = false
+
+[logging]
+# Log level: "debug" (verbose), "info" (normal), "warn" (warnings only), "error" (errors only)
+level = "info"
+
+# Optional log file (defaults to stderr)
+# file = "smbx.log"
+
+# ============================================================================
+# ADVANCED SETTINGS
+# ============================================================================
+
+[exploit.eternalblue]
+# For EternalBlue (MS17-010) RCE:
+
+# Phase 2 (grooming) - Number of memory allocation attempts
+groom_attempts = 1000
+
+# Phase 3 (RCE) - Command to execute on successful exploitation
+# CAUTION: This is example only. Use actual payload in production
+payload_command = "whoami"
+
+# Stage the exploit (true = step through, false = auto-execute all phases)
+staged = true
+
+[exploit.smbghost]
+# For SMBGhost (CVE-2020-0796):
+
+# Number of probe packets to send
+probe_count = 5
+
+# Monitor for crash indicators (timeout, error response)
+monitor_crash = true
+
+# Recover target after probe (send valid commands to re-establish connection)
+attempt_recovery = true
+
+[exploit.ntlm_relay]
+# For NTLM relay attacks:
+
+# Port to listen for relayed connections
+relay_listen_port = 0  # 0 = auto-assign
+
+# Target service for relay (SMB, HTTP, LDAP, etc.)
+relay_target_service = "smb"
+
+# Number of relay attempts before giving up
+relay_max_attempts = 5
+
+# ============================================================================
+# OPERATIONAL SECURITY
+# ============================================================================
+
+[security]
+# Require interactive confirmation for destructive operations
+require_confirmation = true
+
+# Log all findings to syslog (in addition to file/stdout)
+syslog_enabled = false
+
+# Encrypt output files (requires gpg)
+encrypt_output = false
+encryption_key = ""  # GPG key ID or path
+
+# Anonymize IP addresses in reports
+anonymize_ips = false
+
+# ============================================================================
+# EXPERIMENTAL FEATURES
+# ============================================================================
+
+[experimental]
+# Enable IPv6 scanning support (currently limited)
+ipv6_support = false
+
+# Use raw sockets for ICMP ping (requires elevated privileges)
+raw_socket_ping = false
+
+# Attempt to crack captured NTLM hashes (requires hashcat)
+attempt_hash_cracking = false
+
+# ============================================================================
+# PERFORMANCE TUNING
+# ============================================================================
+
+[performance]
+# Number of connections to keep in pool
+connection_pool_size = 16
+
+# Buffer size for receiving SMB messages
+smb_buffer_size = 65536
+
+# Use async I/O (recommended for large scans)
+async_io = true
+
+# TCP receive window size (KB)
+tcp_recv_window = 64
