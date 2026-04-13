@@ -1,5 +1,4 @@
 use bytes::{BytesMut, BufMut};
-use smbx_core::SmbxResult;
 
 /// SMB protocol frame builder for crafting requests
 pub struct SmbFrameBuilder {
@@ -77,7 +76,7 @@ impl SmbFrameBuilder {
     }
 
     /// Build null session probe (attempt IPC$ connection)
-    pub fn build_null_session_probe(target: &str) -> Vec<u8> {
+    pub fn build_null_session_probe(_target: &str) -> Vec<u8> {
         let mut buf = BytesMut::new();
 
         // Simple session negotiation for null session
@@ -181,7 +180,7 @@ impl SmbFrameBuilder {
 
         // Offset, MaxCount, MinCount
         buf.put_u32_le(0);
-        buf.put_u16_le(0x10000); // >65536 triggers overflow
+        buf.put_u16_le(0xFFFF); // Max u16 value for MaxCount field
         buf.put_u16_le(0);
         buf.put_u16_le(0);
         buf.put_u16_le(0);
