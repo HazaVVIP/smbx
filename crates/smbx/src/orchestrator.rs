@@ -1,7 +1,7 @@
 use smbx_core::{ExploitMode, Finding, SmbxResult};
 use smbx_fingerprint::SmbFingerprinter;
 use smbx_scanner::SmbScanner;
-use smbx_vuln::{SigningDisabledCheck, SmbV1Check, VulnCheck, VulnRegistry};
+use smbx_vuln::{SigningDisabledCheck, SmbV1Check, VulnRegistry};
 use smbx_exploit::create_default_registry;
 use log::{info, warn};
 
