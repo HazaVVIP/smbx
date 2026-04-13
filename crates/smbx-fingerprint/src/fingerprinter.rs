@@ -22,21 +22,23 @@ impl SmbFingerprinter {
 
         // Try SMBv2/v3 first (modern)
         if let Ok(result) = self.probe_smb2(&addr).await {
+            // Identify OS before moving fields to avoid borrow after partial move
+            fp.os = self.identify_os_from_fingerprint(&result);
             fp.dialect = result.dialect;
             fp.native_os = result.native_os;
             fp.server_name = result.server_name;
             fp.domain_name = result.domain_name;
             fp.capabilities = result.capabilities;
-            fp.os = self.identify_os_from_fingerprint(&result);
             return Ok(fp);
         }
 
         // Fallback to SMBv1
         if let Ok(result) = self.probe_smb1(&addr).await {
+            // Identify OS before moving fields to avoid borrow after partial move
+            fp.os = self.identify_os_from_smb1(&result);
             fp.dialect = result.dialect;
             fp.native_os = result.native_os;
             fp.native_lm = result.native_lm;
-            fp.os = self.identify_os_from_smb1(&result);
             return Ok(fp);
         }
 
