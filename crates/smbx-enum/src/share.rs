@@ -101,6 +101,8 @@ impl ShareEnumerator {
     }
 
     async fn enumerate_shares_rpc(&self, target: &str, port: u16) -> SmbxResult<Vec<ShareInfo>> {
+        Self::validate_target(target)?;
+
         let mut cmd = Command::new("rpcclient");
         cmd.arg("-U")
             .arg("%")
@@ -144,9 +146,7 @@ impl ShareEnumerator {
 
         for line in output.lines() {
             if let Some(value) = Self::extract_field_value(line, "netname:") {
-                if let Some(name) = current_name.take() {
-                    shares.push(Self::build_share_info(name, &current_comment));
-                }
+                Self::push_current_share(&mut shares, &mut current_name, &current_comment);
                 current_comment.clear();
                 current_name = if value.is_empty() { None } else { Some(value) };
             }
@@ -156,11 +156,38 @@ impl ShareEnumerator {
             }
         }
 
-        if let Some(name) = current_name {
-            shares.push(Self::build_share_info(name, &current_comment));
-        }
+        Self::push_current_share(&mut shares, &mut current_name, &current_comment);
 
         shares
+    }
+
+    fn push_current_share(
+        shares: &mut Vec<ShareInfo>,
+        current_name: &mut Option<String>,
+        current_comment: &str,
+    ) {
+        if let Some(name) = current_name.take() {
+            shares.push(Self::build_share_info(name, current_comment));
+        }
+    }
+
+    fn validate_target(target: &str) -> SmbxResult<()> {
+        if target.is_empty() {
+            return Err(SmbxError::InvalidTarget("target cannot be empty".to_string()));
+        }
+
+        let is_valid = target
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '.' | '-' | ':' | '[' | ']' | '%'));
+
+        if is_valid {
+            Ok(())
+        } else {
+            Err(SmbxError::InvalidTarget(format!(
+                "target contains unsupported characters: {}",
+                target
+            )))
+        }
     }
 
     fn extract_field_value(line: &str, field_key: &str) -> Option<String> {
