@@ -1,4 +1,4 @@
-use smbx_core::{ShareFile, SmbxError, SmbxResult};
+ use smbx_core::{ShareFile, SmbxResult};
 
 #[derive(Debug, Clone)]
 pub struct ShareInfo {
@@ -58,7 +58,7 @@ impl ShareEnumerator {
         // 4. For each share, attempt connection and file listing
         // 5. Return list with accessible status
 
-        log::debug!("Enumerating shares on {}:{}", target, port);
+        log::debug!("Enumerating shares on {}:{} (timeout: {}s)", target, port, self.timeout_secs);
 
         // Default shares that are often present
         let default_shares = vec![
@@ -89,10 +89,11 @@ impl ShareEnumerator {
         share: &str,
     ) -> SmbxResult<Vec<ShareFile>> {
         log::debug!(
-            "Listing files in share {} on {}:{}",
+            "Listing files in share {} on {}:{} (timeout: {}s)",
             share,
             target,
-            port
+            port,
+            self.timeout_secs
         );
 
         // In a real implementation:
