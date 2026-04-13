@@ -103,8 +103,7 @@ impl ShareEnumerator {
     async fn enumerate_shares_rpc(&self, target: &str, port: u16) -> SmbxResult<Vec<ShareInfo>> {
         let mut cmd = Command::new("rpcclient");
         cmd.arg("-U")
-            .arg("")
-            .arg("-N")
+            .arg("%")
             .arg("-p")
             .arg(port.to_string())
             .arg(target)
@@ -144,7 +143,7 @@ impl ShareEnumerator {
         let mut current_comment = String::new();
 
         for line in output.lines() {
-            if let Some(value) = Self::extract_field_value(line, "netname") {
+            if let Some(value) = Self::extract_field_value(line, "netname:") {
                 if let Some(name) = current_name.take() {
                     shares.push(Self::build_share_info(name, &current_comment));
                 }
@@ -152,7 +151,7 @@ impl ShareEnumerator {
                 current_name = if value.is_empty() { None } else { Some(value) };
             }
 
-            if let Some(value) = Self::extract_field_value(line, "remark") {
+            if let Some(value) = Self::extract_field_value(line, "remark:") {
                 current_comment = value;
             }
         }
@@ -164,17 +163,16 @@ impl ShareEnumerator {
         shares
     }
 
-    fn extract_field_value(line: &str, field: &str) -> Option<String> {
-        const KNOWN_FIELDS: [&str; 4] = ["netname:", "remark:", "path:", "password:"];
+    fn extract_field_value(line: &str, field_key: &str) -> Option<String> {
+        const KNOWN_FIELDS: &[&str] = &["netname:", "remark:", "path:", "password:"];
 
         let lower = line.to_ascii_lowercase();
-        let key = format!("{}:", field.to_ascii_lowercase());
-        let start = lower.find(&key)?;
-        let value_start = start + key.len();
+        let start = lower.find(field_key)?;
+        let value_start = start + field_key.len();
         let mut end = line.len();
 
         for marker in KNOWN_FIELDS {
-            if marker == key {
+            if *marker == field_key {
                 continue;
             }
 
