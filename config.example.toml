@@ -1,7 +1,12 @@
 # SMBX Configuration File
 # Copy this to config.toml and customize for your environment
 
-[scanner]
+[enum]
+# Samba --option= flags automatically passed to rpcclient/smbclient on every invocation.
+# These defaults ensure the tool works without extra typing on the command line.
+samba_options = ["interfaces=lo", "bind interfaces only=no"]
+
+
 # Timeout for individual host scanning (seconds)
 timeout_secs = 30
 

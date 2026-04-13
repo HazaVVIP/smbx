@@ -7,6 +7,8 @@ pub struct Config {
     pub exploit: ExploitConfig,
     pub output: OutputConfig,
     pub logging: LoggingConfig,
+    #[serde(rename = "enum", default)]
+    pub enum_config: EnumConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,6 +56,7 @@ impl Default for Config {
             exploit: ExploitConfig::default(),
             output: OutputConfig::default(),
             logging: LoggingConfig::default(),
+            enum_config: EnumConfig::default(),
         }
     }
 }
@@ -107,6 +110,24 @@ impl Default for LoggingConfig {
         Self {
             level: "info".to_string(),
             file: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnumConfig {
+    /// Extra Samba `--option=` flags passed to rpcclient/smbclient on every invocation.
+    /// These are applied automatically as defaults so they never need to be typed manually.
+    pub samba_options: Vec<String>,
+}
+
+impl Default for EnumConfig {
+    fn default() -> Self {
+        Self {
+            samba_options: vec![
+                "interfaces=lo".to_string(),
+                "bind interfaces only=no".to_string(),
+            ],
         }
     }
 }

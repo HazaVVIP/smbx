@@ -45,11 +45,22 @@ impl ShareType {
 
 pub struct ShareEnumerator {
     timeout_secs: u64,
+    samba_options: Vec<String>,
 }
 
 impl ShareEnumerator {
     pub fn new(timeout_secs: u64) -> Self {
-        Self { timeout_secs }
+        Self {
+            timeout_secs,
+            samba_options: smbx_core::EnumConfig::default().samba_options,
+        }
+    }
+
+    pub fn with_samba_options(timeout_secs: u64, samba_options: Vec<String>) -> Self {
+        Self {
+            timeout_secs,
+            samba_options,
+        }
     }
 
     /// Enumerate SMB shares on target
@@ -107,8 +118,13 @@ impl ShareEnumerator {
         cmd.arg("-U")
             .arg("%")
             .arg("-p")
-            .arg(port.to_string())
-            .arg(target)
+            .arg(port.to_string());
+
+        for opt in &self.samba_options {
+            cmd.arg(format!("--option={}", opt));
+        }
+
+        cmd.arg(target)
             .arg("-c")
             .arg("netshareenumall")
             .stdin(Stdio::null())
