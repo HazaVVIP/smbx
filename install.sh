@@ -19,12 +19,12 @@ echo ""
 
 # Detect environment
 detect_env() {
-    if [ -d "/data/data/com.termux" ]; then
-        echo "termux"
-    elif [ -f "/etc/os-release" ]; then
+    # Periksa os-release terlebih dahulu untuk mendeteksi Linux Proot/Native
+    if [ -f "/etc/os-release" ]; then
         . /etc/os-release
         echo "$ID"
-    else
+    elif [ -d "/data/data/com.termux" ]; then
+        echo "termux"                                                                       else
         echo "unknown"
     fi
 }
@@ -32,24 +32,29 @@ detect_env() {
 ENV=$(detect_env)
 echo -e "${YELLOW}[*] Detected environment: ${ENV}${NC}"
 
+# Setup sudo
+SUDO=""
+if [ "$EUID" -ne 0 ]; then                                                                  SUDO="sudo"
+fi
+
 # Install dependencies
 install_deps() {
     echo -e "${YELLOW}[*] Installing dependencies...${NC}"
-    
+
     case "$ENV" in
         termux)
             pkg update -y
             pkg install -y git curl build-essential pkg-config openssl-dev
             ;;
-        ubuntu|debian)
-            sudo apt update
-            sudo apt install -y git curl build-essential pkg-config libssl-dev
+        ubuntu|debian|kali)
+            $SUDO apt update
+            $SUDO apt install -y git curl build-essential pkg-config libssl-dev
             ;;
         fedora|centos|rhel)
-            sudo dnf install -y git curl gcc pkg-config openssl-devel
+            $SUDO dnf install -y git curl gcc pkg-config openssl-devel
             ;;
         arch|manjaro)
-            sudo pacman -Syu --noconfirm git curl base-devel pkg-config openssl
+            $SUDO pacman -Syu --noconfirm git curl base-devel pkg-config openssl
             ;;
         *)
             echo -e "${RED}[-] Unknown environment. Please install manually:${NC}"
@@ -57,7 +62,7 @@ install_deps() {
             return 1
             ;;
     esac
-    
+
     echo -e "${GREEN}[+] Dependencies installed${NC}"
 }
 
@@ -77,15 +82,15 @@ install_rust() {
 # Build SMBX
 build_smbx() {
     echo -e "${YELLOW}[*] Building SMBX...${NC}"
-    
+
     # Ensure cargo is in PATH
     if [ -f "$HOME/.cargo/env" ]; then
         source "$HOME/.cargo/env"
     fi
-    
+
     # Build release
     cargo build --release
-    
+
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}[+] Build successful!${NC}"
         echo -e "${GREEN}[+] Binary location: target/release/smbx${NC}"
@@ -98,24 +103,24 @@ build_smbx() {
 # Install to PATH
 install_binary() {
     echo -e "${YELLOW}[*] Installing smbx to PATH...${NC}"
-    
+
     if [ "$ENV" = "termux" ]; then
         INSTALL_DIR="$PREFIX/bin"
     else
         INSTALL_DIR="$HOME/.local/bin"
         mkdir -p "$INSTALL_DIR"
     fi
-    
+
     cp target/release/smbx "$INSTALL_DIR/"
     chmod +x "$INSTALL_DIR/smbx"
-    
+
     # Check if in PATH
     if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
         echo "export PATH=\"\$PATH:$INSTALL_DIR\"" >> "$HOME/.bashrc"
         echo -e "${YELLOW}[!] Added $INSTALL_DIR to PATH in .bashrc${NC}"
         echo -e "${YELLOW}[!] Run: source ~/.bashrc${NC}"
     fi
-    
+
     echo -e "${GREEN}[+] SMBX installed to $INSTALL_DIR/smbx${NC}"
 }
 
@@ -123,11 +128,11 @@ install_binary() {
 verify() {
     echo ""
     echo -e "${YELLOW}[*] Verifying installation...${NC}"
-    
+
     if [ -f "$HOME/.cargo/env" ]; then
         source "$HOME/.cargo/env"
     fi
-    
+
     if command -v smbx &> /dev/null; then
         echo -e "${GREEN}[+] SMBX is available in PATH${NC}"
         smbx --help | head -5
@@ -138,7 +143,7 @@ verify() {
         echo -e "${RED}[-] SMBX not found${NC}"
         return 1
     fi
-    
+
     echo ""
     echo -e "${GREEN}========================================${NC}"
     echo -e "${GREEN}  Installation Complete!${NC}"
@@ -155,13 +160,13 @@ verify() {
 # Main
 main() {
     echo ""
-    
+
     # Check if we're in the project directory
     if [ ! -f "Cargo.toml" ]; then
         echo -e "${RED}[-] Error: Run this script from the SMBX project root directory${NC}"
         exit 1
     fi
-    
+
     install_deps
     install_rust
     build_smbx
