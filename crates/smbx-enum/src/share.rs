@@ -108,6 +108,8 @@ impl ShareEnumerator {
             .arg("%")
             .arg("-p")
             .arg(port.to_string())
+            .arg("--option=interfaces=lo")
+            .arg("--option=bind interfaces only=no")
             .arg(target)
             .arg("-c")
             .arg("netshareenumall")
