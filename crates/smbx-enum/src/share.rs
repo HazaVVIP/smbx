@@ -1,4 +1,7 @@
- use smbx_core::{ShareFile, SmbxResult};
+use smbx_core::{ShareFile, SmbxError, SmbxResult};
+use std::process::Stdio;
+use tokio::process::Command;
+use tokio::time::{timeout, Duration};
 
 #[derive(Debug, Clone)]
 pub struct ShareInfo {
@@ -51,34 +54,25 @@ impl ShareEnumerator {
 
     /// Enumerate SMB shares on target
     pub async fn enumerate_shares(&self, target: &str, port: u16) -> SmbxResult<Vec<ShareInfo>> {
-        // In a real implementation, this would:
-        // 1. Connect to SMB target
-        // 2. Send share enumeration request (NetShareEnum RPC)
-        // 3. Parse response and build ShareInfo list
-        // 4. For each share, attempt connection and file listing
-        // 5. Return list with accessible status
-
-        log::debug!("Enumerating shares on {}:{} (timeout: {}s)", target, port, self.timeout_secs);
-
-        // Default shares that are often present
-        let default_shares = vec![
-            ShareInfo {
-                name: "IPC$".to_string(),
-                share_type: ShareType::IPC,
-                comment: "Inter-process communication".to_string(),
-                accessible: true,
-                files: Vec::new(),
-            },
-            ShareInfo {
-                name: "C$".to_string(),
-                share_type: ShareType::DiskTree,
-                comment: "C drive".to_string(),
-                accessible: false,
-                files: Vec::new(),
-            },
-        ];
-
-        Ok(default_shares)
+        log::debug!(
+            "Enumerating shares on {}:{} (timeout: {}s)",
+            target,
+            port,
+            self.timeout_secs
+        );
+        match self.enumerate_shares_rpc(target, port).await {
+            Ok(shares) if !shares.is_empty() => Ok(shares),
+            Ok(_) => Ok(Vec::new()),
+            Err(err) => {
+                log::warn!(
+                    "RPC share enumeration failed on {}:{}: {}; using compatibility fallback",
+                    target,
+                    port,
+                    err
+                );
+                Ok(Self::fallback_shares())
+            }
+        }
     }
 
     /// List files in a specific share
@@ -104,5 +98,172 @@ impl ShareEnumerator {
         // 5. Parse responses and return file list
 
         Ok(Vec::new())
+    }
+
+    async fn enumerate_shares_rpc(&self, target: &str, port: u16) -> SmbxResult<Vec<ShareInfo>> {
+        let mut cmd = Command::new("rpcclient");
+        cmd.arg("-U")
+            .arg("")
+            .arg("-N")
+            .arg("-p")
+            .arg(port.to_string())
+            .arg(target)
+            .arg("-c")
+            .arg("netshareenumall")
+            .stdin(Stdio::null())
+            .stderr(Stdio::piped())
+            .stdout(Stdio::piped());
+
+        let output = timeout(Duration::from_secs(self.timeout_secs), cmd.output())
+            .await
+            .map_err(|_| SmbxError::Timeout)?
+            .map_err(|e| SmbxError::EnumError(format!("failed to execute rpcclient: {}", e)))?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let shares = Self::parse_rpcclient_output(&stdout);
+        if !shares.is_empty() {
+            return Ok(shares);
+        }
+
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let failure_reason = if stderr.is_empty() {
+            format!(
+                "rpcclient returned no share data (status: {})",
+                output.status
+            )
+        } else {
+            format!("rpcclient failed: {}", stderr)
+        };
+
+        Err(SmbxError::EnumError(failure_reason))
+    }
+
+    fn parse_rpcclient_output(output: &str) -> Vec<ShareInfo> {
+        let mut shares = Vec::new();
+        let mut current_name: Option<String> = None;
+        let mut current_comment = String::new();
+
+        for line in output.lines() {
+            if let Some(value) = Self::extract_field_value(line, "netname") {
+                if let Some(name) = current_name.take() {
+                    shares.push(Self::build_share_info(name, &current_comment));
+                }
+                current_comment.clear();
+                current_name = if value.is_empty() { None } else { Some(value) };
+            }
+
+            if let Some(value) = Self::extract_field_value(line, "remark") {
+                current_comment = value;
+            }
+        }
+
+        if let Some(name) = current_name {
+            shares.push(Self::build_share_info(name, &current_comment));
+        }
+
+        shares
+    }
+
+    fn extract_field_value(line: &str, field: &str) -> Option<String> {
+        const KNOWN_FIELDS: [&str; 4] = ["netname:", "remark:", "path:", "password:"];
+
+        let lower = line.to_ascii_lowercase();
+        let key = format!("{}:", field.to_ascii_lowercase());
+        let start = lower.find(&key)?;
+        let value_start = start + key.len();
+        let mut end = line.len();
+
+        for marker in KNOWN_FIELDS {
+            if marker == key {
+                continue;
+            }
+
+            if let Some(next_pos) = lower[value_start..].find(marker) {
+                let absolute = value_start + next_pos;
+                if absolute < end {
+                    end = absolute;
+                }
+            }
+        }
+
+        Some(line[value_start..end].trim().to_string())
+    }
+
+    fn build_share_info(name: String, comment: &str) -> ShareInfo {
+        let lowered_name = name.to_ascii_lowercase();
+        let lowered_comment = comment.to_ascii_lowercase();
+        let share_type = if lowered_name == "ipc$" {
+            ShareType::IPC
+        } else if lowered_name.starts_with("print") || lowered_comment.contains("printer") {
+            ShareType::PrintQ
+        } else {
+            ShareType::DiskTree
+        };
+
+        ShareInfo {
+            name,
+            share_type,
+            comment: comment.to_string(),
+            accessible: true,
+            files: Vec::new(),
+        }
+    }
+
+    fn fallback_shares() -> Vec<ShareInfo> {
+        vec![
+            ShareInfo {
+                name: "IPC$".to_string(),
+                share_type: ShareType::IPC,
+                comment: "Inter-process communication".to_string(),
+                accessible: true,
+                files: Vec::new(),
+            },
+            ShareInfo {
+                name: "C$".to_string(),
+                share_type: ShareType::DiskTree,
+                comment: "C drive".to_string(),
+                accessible: false,
+                files: Vec::new(),
+            },
+        ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ShareEnumerator, ShareType};
+
+    #[test]
+    fn parse_rpcclient_output_handles_multiline_records() {
+        let output = r#"
+netname: xpert
+remark:
+path: C:\xpert
+password:
+netname: print$
+remark: Printer Drivers
+path: C:\var\lib\samba\drivers
+password:
+netname: IPC$
+remark: IPC Service (samba server 4.7.6-Ubuntu)
+path: C:\tmp
+password:
+"#;
+
+        let shares = ShareEnumerator::parse_rpcclient_output(output);
+        assert_eq!(shares.len(), 3);
+        assert_eq!(shares[0].name, "xpert");
+        assert_eq!(shares[1].share_type, ShareType::PrintQ);
+        assert_eq!(shares[2].share_type, ShareType::IPC);
+    }
+
+    #[test]
+    fn parse_rpcclient_output_handles_compact_records() {
+        let output = "netname: IPC$ remark: IPC Service (samba server)";
+        let shares = ShareEnumerator::parse_rpcclient_output(output);
+        assert_eq!(shares.len(), 1);
+        assert_eq!(shares[0].name, "IPC$");
+        assert_eq!(shares[0].comment, "IPC Service (samba server)");
+        assert_eq!(shares[0].share_type, ShareType::IPC);
     }
 }

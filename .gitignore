@@ -7,5 +7,6 @@ __v0_jsx-dev-runtime.ts
 node_modules
 .next/
 .env*.local
-.DS_Storetarget/
+.DS_Store
+target/
 Cargo.lock
