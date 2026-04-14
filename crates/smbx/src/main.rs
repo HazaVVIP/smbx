@@ -4,7 +4,7 @@ mod orchestrator;
 use cli::Cli;
 use clap::Parser;
 use orchestrator::Orchestrator;
-use smbx_core::{Config, ExploitMode};
+use smbx_core::Config;
 use smbx_report::JsonReporter;
 
 // ---------------------------------------------------------------------------
@@ -104,7 +104,7 @@ async fn main() -> anyhow::Result<()> {
     for host in &open_hosts {
         println!("\n[*] Running full assessment on {}:{}", host, PORT);
 
-        match orchestrator.full_scan(host, PORT, ExploitMode::Aggressive, None).await {
+        match orchestrator.full_scan(host, PORT, None).await {
             Ok(findings) => {
                 println!("[+] Assessment complete for {}. Found {} finding(s).", host, findings.len());
 

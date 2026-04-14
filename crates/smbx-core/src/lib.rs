@@ -8,6 +8,6 @@ pub mod fingerprint;
 pub use config::{Config, EnumConfig, ExploitConfig, ExploitTargets, LoggingConfig, OutputConfig, ScannerConfig};
 pub use error::{SmbxError, SmbxResult};
 pub use evidence::{Evidence, ShareFile};
-pub use exploit::{ExploitConfig as ExploitOpConfig, ExploitMode, ExploitResult};
+pub use exploit::{ExploitConfig as ExploitOpConfig, ExploitResult};
 pub use finding::{Confidence, Finding, FindingReport, Severity};
 pub use fingerprint::{Fingerprint, OperatingSystem, SmbDialect};
