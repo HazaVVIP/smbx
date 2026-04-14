@@ -17,6 +17,10 @@ pub struct Cli {
     /// Output file (JSON)
     #[arg(global = true, short, long)]
     pub output: Option<String>,
+
+    /// Path to configuration file (default: ./config.toml or ~/.config/smbx/config.toml)
+    #[arg(global = true, long, value_name = "FILE")]
+    pub config: Option<String>,
 }
 
 #[derive(Subcommand)]
