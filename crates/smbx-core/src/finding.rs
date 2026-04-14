@@ -127,6 +127,14 @@ impl Finding {
     pub fn risk_score(&self) -> f32 {
         (self.severity.score() + self.confidence.as_percent()) / 2.0
     }
+
+    pub fn push_evidence(&mut self, evidence: Evidence) {
+        self.evidence.push(evidence);
+    }
+
+    pub fn set_confidence(&mut self, confidence: Confidence) {
+        self.confidence = confidence;
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

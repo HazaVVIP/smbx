@@ -75,31 +75,46 @@ impl Orchestrator {
             }
         }
 
-        // Step 4: Exploitation (if mode allows)
-        if !matches!(mode, ExploitMode::Safe) || findings.iter().any(|f| f.exploit_module.is_some()) {
-            info!("[Orchestrator] Step 4: Exploitation phase (mode: {:?})", mode);
+        // Step 4: Exploitation — always attempt for every finding that has an exploit module
+        {
+            info!(
+                "[Orchestrator] Step 4: Exploitation phase (mode: {:?}, {} exploit(s) to attempt)",
+                mode,
+                findings.iter().filter(|f| f.exploit_module.is_some()).count()
+            );
 
             let exploit_registry = create_default_registry();
 
-            for finding in &findings {
-                if let Some(ref exploit_id) = finding.exploit_module {
-                    if let Some(_exploit) = exploit_registry.find_by_id(exploit_id) {
-                        if exploit_registry.can_run_at_mode(exploit_id, mode) {
-                            info!("[Orchestrator] Running exploit: {}", exploit_id);
-
-                            match exploit_registry.run_exploit_safe(exploit_id, target, port).await {
-                                Ok(result) => {
-                                    log::debug!("[Orchestrator] Exploit result: {:?}", result);
-                                    if result.is_success() {
-                                        info!("[Orchestrator] Exploit {} succeeded", exploit_id);
-                                    }
+            for finding in &mut findings {
+                if let Some(exploit_id) = finding.exploit_module.clone() {
+                    match exploit_registry.run_exploit(&exploit_id, target, port, mode).await {
+                        Ok(result) => {
+                            match result {
+                                smbx_core::ExploitResult::Proven { evidence, ref message } => {
+                                    info!("[Orchestrator] Exploit {}: Proven – {}", exploit_id, message);
+                                    finding.push_evidence(evidence);
+                                    finding.set_confidence(smbx_core::Confidence::Confirmed);
                                 }
-                                Err(e) => {
-                                    warn!("[Orchestrator] Exploit {} failed: {}", exploit_id, e);
+                                smbx_core::ExploitResult::PartialProof { evidence, ref message } => {
+                                    info!("[Orchestrator] Exploit {}: PartialProof – {}", exploit_id, message);
+                                    finding.push_evidence(evidence);
+                                }
+                                smbx_core::ExploitResult::Inconclusive { ref reason } => {
+                                    warn!("[Orchestrator] Exploit {}: Inconclusive – {}", exploit_id, reason);
+                                }
+                                smbx_core::ExploitResult::Skipped { ref reason } => {
+                                    log::debug!("[Orchestrator] Exploit {}: Skipped – {}", exploit_id, reason);
+                                }
+                                smbx_core::ExploitResult::RequiresConsent { ref operation, ref reason } => {
+                                    warn!("[Orchestrator] Exploit {} requires explicit consent (use --confirm with destructive mode): {} – {}", exploit_id, operation, reason);
+                                }
+                                smbx_core::ExploitResult::Failed { ref error } => {
+                                    warn!("[Orchestrator] Exploit {}: Failed – {}", exploit_id, error);
                                 }
                             }
-                        } else {
-                            warn!("[Orchestrator] Exploit {} requires higher mode", exploit_id);
+                        }
+                        Err(e) => {
+                            warn!("[Orchestrator] Exploit {} error: {}", exploit_id, e);
                         }
                     }
                 }

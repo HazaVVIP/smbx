@@ -149,7 +149,7 @@ async fn main() -> anyhow::Result<()> {
             println!("[*] Running exploit: {} against {}:{}", exploit, target, port);
 
             let registry = smbx_exploit::create_default_registry();
-            match registry.run_exploit_safe(&exploit, &target, port).await {
+            match registry.run_exploit(&exploit, &target, port, exploit_mode).await {
                 Ok(result) => {
                     println!("[+] Exploit result: {:?}", result);
                 }
