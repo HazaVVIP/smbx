@@ -82,6 +82,25 @@ pub enum Evidence {
         label: String,
         content: String,
     },
+
+    /// Raw DCE/RPC response bytes captured from a named-pipe endpoint
+    RpcResponse {
+        endpoint: String,
+        response_bytes: Vec<u8>,
+    },
+
+    /// Successful write to a named pipe (EternalRomance / EternalChampion)
+    NamedPipeAccess {
+        pipe_name: String,
+        data_written: usize,
+    },
+
+    /// Shared library (.so) uploaded to a writable Samba share (SambaCry)
+    SharedLibraryUploaded {
+        share: String,
+        path: String,
+        size: usize,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,6 +127,9 @@ impl Evidence {
             Evidence::SigningDisabled { .. } => "signing_disabled",
             Evidence::NullSessionEstablished { .. } => "null_session",
             Evidence::TextEvidence { .. } => "text_evidence",
+            Evidence::RpcResponse { .. } => "rpc_response",
+            Evidence::NamedPipeAccess { .. } => "named_pipe_access",
+            Evidence::SharedLibraryUploaded { .. } => "shared_library_uploaded",
         }
     }
 }

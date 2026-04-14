@@ -3,8 +3,10 @@ use smbx_enum::ShareEnumerator;
 use smbx_fingerprint::SmbFingerprinter;
 use smbx_scanner::SmbScanner;
 use smbx_vuln::{
-    GuestSessionCheck, NullSessionCheck, SigningDisabledCheck, SmbGhostCheck, SmbV1Check,
-    VulnRegistry,
+    EternalChampionCheck, EternalRomanceCheck, EternalSynergyCheck,
+    GuestSessionCheck, NetApiCheck, NullSessionCheck, SambaTallocCheck,
+    SambaVfsFruitCheck, SambaCryCheck, SigningDisabledCheck, SmBleedCheck,
+    SmbGhostCheck, SmbV1Check, VulnRegistry,
 };
 use smbx_exploit::create_default_registry;
 use log::{info, warn};
@@ -131,6 +133,14 @@ impl Orchestrator {
         vuln_registry.register(Box::new(NullSessionCheck::new(fingerprint.clone())));
         vuln_registry.register(Box::new(GuestSessionCheck::new(fingerprint.clone())));
         vuln_registry.register(Box::new(SmbGhostCheck::new(fingerprint.clone())));
+        vuln_registry.register(Box::new(EternalRomanceCheck::new(fingerprint.clone())));
+        vuln_registry.register(Box::new(EternalChampionCheck::new(fingerprint.clone())));
+        vuln_registry.register(Box::new(EternalSynergyCheck::new(fingerprint.clone())));
+        vuln_registry.register(Box::new(NetApiCheck::new(fingerprint.clone(), target.to_string(), port)));
+        vuln_registry.register(Box::new(SmBleedCheck::new(fingerprint.clone(), target.to_string(), port)));
+        vuln_registry.register(Box::new(SambaCryCheck::new(fingerprint.clone(), target.to_string(), port)));
+        vuln_registry.register(Box::new(SambaVfsFruitCheck::new(fingerprint.clone(), target.to_string(), port)));
+        vuln_registry.register(Box::new(SambaTallocCheck::new(fingerprint.clone(), target.to_string(), port)));
 
         match vuln_registry.run_all().await {
             Ok(mut vuln_findings) => {
@@ -224,6 +234,14 @@ impl Orchestrator {
             ("null-session-enabled", "Null session access allowed"),
             ("guest-account-enabled", "Guest account access allowed"),
             ("smbghost-vulnerable", "SMBGhost (CVE-2020-0796) vulnerability"),
+            ("eternal-romance-vulnerable", "EternalRomance RCE (MS17-010 / CVE-2017-0145)"),
+            ("eternal-champion-vulnerable", "EternalChampion RCE (MS17-010 / CVE-2017-0146)"),
+            ("eternal-synergy-vulnerable", "EternalSynergy RCE (MS17-010 / CVE-2017-0143)"),
+            ("netapi-vulnerable", "NetAPI MS08-067 RCE (CVE-2008-4250)"),
+            ("smbleed-vulnerable", "SMBleed kernel memory disclosure (CVE-2020-1206)"),
+            ("sambacry-vulnerable", "SambaCry shared-library injection RCE (CVE-2017-7494)"),
+            ("samba-vfs-fruit-vulnerable", "Samba vfs_fruit OOB RCE (CVE-2021-44142)"),
+            ("samba-talloc-vulnerable", "Samba Talloc heap overwrite RCE (CVE-2012-1182)"),
         ]
     }
 
@@ -232,9 +250,17 @@ impl Orchestrator {
         vec![
             ("null_pivot", "Null Session Enumeration", "Safe"),
             ("guest_pivot", "Guest Account Access", "Safe"),
-            ("ghost_probe", "SMBGhost Detection (CVE-2020-0796)", "Aggressive"),
+            ("ghost_probe", "SMBGhost RCE Detection (CVE-2020-0796)", "Aggressive"),
             ("ntlm_relay", "NTLM Relay Attack", "Aggressive"),
-            ("eternalblue", "EternalBlue RCE (MS17-010)", "Destructive"),
+            ("eternalblue", "EternalBlue RCE (MS17-010 / CVE-2017-0144)", "Destructive"),
+            ("eternal_romance", "EternalRomance RCE (MS17-010 / CVE-2017-0145)", "Destructive"),
+            ("eternal_champion", "EternalChampion RCE (MS17-010 / CVE-2017-0146)", "Destructive"),
+            ("eternal_synergy", "EternalSynergy RCE (MS17-010 / CVE-2017-0143)", "Destructive"),
+            ("netapi", "NetAPI MS08-067 RCE (CVE-2008-4250)", "Destructive"),
+            ("smbleed", "SMBleed Kernel Memory Disclosure (CVE-2020-1206)", "Aggressive"),
+            ("sambacry", "SambaCry Shared-Library Injection RCE (CVE-2017-7494)", "Destructive"),
+            ("samba_vfs_fruit", "Samba vfs_fruit OOB RCE (CVE-2021-44142)", "Aggressive"),
+            ("samba_talloc", "Samba Talloc Heap Overwrite RCE (CVE-2012-1182)", "Aggressive"),
         ]
     }
 }

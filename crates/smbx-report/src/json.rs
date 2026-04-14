@@ -157,6 +157,26 @@ impl JsonReporter {
                     "content": content
                 })
             }
+            smbx_core::Evidence::RpcResponse { endpoint, response_bytes } => {
+                json!({
+                    "endpoint": endpoint,
+                    "response_size": response_bytes.len(),
+                    "data_hex": hex::encode(&response_bytes[..response_bytes.len().min(64)])
+                })
+            }
+            smbx_core::Evidence::NamedPipeAccess { pipe_name, data_written } => {
+                json!({
+                    "pipe_name": pipe_name,
+                    "data_written": data_written
+                })
+            }
+            smbx_core::Evidence::SharedLibraryUploaded { share, path, size } => {
+                json!({
+                    "share": share,
+                    "path": path,
+                    "size": size
+                })
+            }
         }
     }
 }
