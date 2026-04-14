@@ -96,6 +96,63 @@ pub const DEFAULT_NBT_PORT: u16 = 139;
 pub const DEFAULT_TIMEOUT_SECS: u64 = 10;
 pub const MAX_RECV_SIZE: usize = 65536;
 
+// SMBv1 NT_TRANSACT subcommands
+pub const NT_TRANSACT_CREATE: u16 = 0x0001;
+pub const NT_TRANSACT_IOCTL: u16 = 0x0002;
+pub const NT_TRANSACT_SET_SECURITY_DESC: u16 = 0x0003;
+pub const NT_TRANSACT_NOTIFY_CHANGE: u16 = 0x0004;
+pub const NT_TRANSACT_RENAME: u16 = 0x0005;
+pub const NT_TRANSACT_QUERY_SECURITY_DESC: u16 = 0x0006;
+
+// SMBv1 TRANSACTION2 subcommands
+pub const TRANS2_OPEN2: u16 = 0x0000;
+pub const TRANS2_FIND_FIRST2: u16 = 0x0001;
+pub const TRANS2_FIND_NEXT2: u16 = 0x0002;
+pub const TRANS2_QUERY_FS_INFO: u16 = 0x0003;
+pub const TRANS2_QUERY_PATH_INFO: u16 = 0x0005;
+pub const TRANS2_SET_PATH_INFO: u16 = 0x0006;
+pub const TRANS2_QUERY_FILE_INFO: u16 = 0x0007;
+pub const TRANS2_SET_FILE_INFO: u16 = 0x0008;
+
+// SMBv1 additional commands used by EternalRomance / MS17-010 WriteAndX path
+pub const SMB_COM_NT_TRANSACT: u8 = 0xA0;
+pub const SMB_COM_TRANSACTION2: u8 = 0x32;
+pub const SMB_COM_NT_CREATE_ANDX: u8 = 0xA2;
+
+// SMBv3 compression / SMBleed constants (CVE-2020-1206)
+pub const SMB2_COMPRESSION_TRANSFORM_MAGIC: &[u8] = b"\xfcSMB";
+pub const SMB2_COMPRESSION_ALG_LZ77: u16 = 0x0002;
+pub const SMB2_COMPRESSION_ALG_LZ77_HUFFMAN: u16 = 0x0003;
+pub const SMB2_COMPRESSION_ALG_LZNT1: u16 = 0x0001;
+pub const SMB2_COMPRESSION_CAPABILITIES_CONTEXT_TYPE: u16 = 0x0003;
+
+// Named pipe paths used by NetAPI / RPC exploits
+pub const PIPE_SRVSVC: &str = r"\PIPE\srvsvc";
+pub const PIPE_WKSSVC: &str = r"\PIPE\wkssvc";
+pub const PIPE_SVCCTL: &str = r"\PIPE\svcctl";
+pub const PIPE_SAMR: &str = r"\PIPE\samr";
+pub const PIPE_BROWSER: &str = r"\PIPE\browser";
+pub const PIPE_LSARPC: &str = r"\PIPE\lsarpc";
+
+// Samba / DCERPC interface identifiers
+pub const DCERPC_UUID_SRVSVC: &str = "4b324fc8-1670-01d3-1278-5a47bf6ee188";
+pub const DCERPC_UUID_WKSSVC: &str = "6bffd098-a112-3610-9833-46c3f87e345a";
+pub const DCERPC_UUID_SVCCTL: &str = "367abb81-9844-35f1-ad32-98f038001003";
+pub const DCERPC_UUID_SAMR: &str = "12345778-1234-abcd-ef00-0123456789ac";
+
+// NTSTATUS codes commonly seen in RPC exploit responses
+pub const STATUS_SUCCESS: u32 = 0x00000000;
+pub const STATUS_ACCESS_DENIED: u32 = 0xC0000022;
+pub const STATUS_INVALID_PARAMETER: u32 = 0xC000000D;
+pub const STATUS_OBJECT_NAME_NOT_FOUND: u32 = 0xC0000034;
+pub const STATUS_BUFFER_OVERFLOW: u32 = 0x80000005;
+pub const STATUS_BUFFER_TOO_SMALL: u32 = 0xC0000023;
+pub const RPC_S_ACCESS_DENIED: u32 = 0x00000005;
+
+// AFP / vfs_fruit stream name used by CVE-2021-44142
+pub const AFP_AFPINFO_STREAM: &str = "AFP_AfpInfo";
+pub const AFP_AFPINFO_STREAM_LEN: usize = 60;
+
 // Common SID strings
 pub const SID_WORLD: &str = "S-1-1-0";
 pub const SID_AUTHENTICATED_USERS: &str = "S-1-5-11";
