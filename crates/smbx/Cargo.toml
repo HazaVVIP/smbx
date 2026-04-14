@@ -25,3 +25,5 @@ smbx-vuln = { workspace = true }
 smbx-exploit = { workspace = true }
 smbx-enum = { workspace = true }
 smbx-report = { workspace = true }
+toml = { workspace = true }
+serde = { workspace = true }
