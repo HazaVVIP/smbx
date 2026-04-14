@@ -24,8 +24,8 @@ max_port = 445
 # Enable/disable exploitation phase
 enabled = true
 
-# Exploitation mode: "safe" (read-only), "aggressive" (probing), "destructive" (RCE)
-mode = "safe"
+# Exploitation mode: "aggressive" (probing), "destructive" (RCE)
+mode = "aggressive"
 
 # Automatically attempt privilege escalation after successful exploitation
 auto_pivot = false

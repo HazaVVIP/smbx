@@ -69,8 +69,8 @@ pub enum Commands {
         #[arg(short, long, default_value = "445")]
         port: u16,
 
-        /// Exploitation mode (safe, aggressive, destructive)
-        #[arg(short, long, default_value = "safe")]
+        /// Exploitation mode (aggressive, destructive)
+        #[arg(short, long, default_value = "aggressive")]
         mode: String,
 
         /// Enable RCE exploit (destructive mode only)
@@ -119,8 +119,8 @@ pub enum Commands {
         #[arg(short, long, default_value = "445")]
         port: u16,
 
-        /// Exploitation mode (safe, aggressive, destructive)
-        #[arg(short, long, default_value = "safe")]
+        /// Exploitation mode (aggressive, destructive)
+        #[arg(short, long, default_value = "aggressive")]
         mode: String,
 
         /// Enable RCE (required for some exploits)

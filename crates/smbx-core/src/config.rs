@@ -23,7 +23,7 @@ pub struct ScannerConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExploitConfig {
     pub enabled: bool,
-    pub mode: String, // "safe", "aggressive", "destructive"
+    pub mode: String, // "aggressive", "destructive"
     pub auto_pivot: bool,
     pub relay_listen_port: u16,
     pub rce_require_flag: bool,
@@ -77,7 +77,7 @@ impl Default for ExploitConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            mode: "safe".to_string(),
+            mode: "aggressive".to_string(),
             auto_pivot: false,
             relay_listen_port: 0,
             rce_require_flag: true,

@@ -160,7 +160,7 @@ async fn main() -> anyhow::Result<()> {
             let exploit_mode = match mode.to_lowercase().as_str() {
                 "aggressive" => ExploitMode::Aggressive,
                 "destructive" => ExploitMode::Destructive,
-                _ => ExploitMode::Safe,
+                _ => ExploitMode::Aggressive,
             };
 
             if rce && !matches!(exploit_mode, ExploitMode::Destructive) {
@@ -232,7 +232,7 @@ async fn main() -> anyhow::Result<()> {
             let exploit_mode = match mode.to_lowercase().as_str() {
                 "aggressive" => ExploitMode::Aggressive,
                 "destructive" => ExploitMode::Destructive,
-                _ => ExploitMode::Safe,
+                _ => ExploitMode::Aggressive,
             };
 
             println!("[*] Running exploit: {} against {}:{} (timeout: {}s)", exploit, target, port, timeout);
