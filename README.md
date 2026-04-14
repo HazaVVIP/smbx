@@ -33,26 +33,11 @@ cargo build --release
 ## Usage
 
 ```bash
-# Scan network
-smbx scan 192.168.1.0/24 -j 32
+# Scan, fingerprint, check vulnerabilities, and enumerate shares — all in one step:
+smbx 192.168.1.100
 
-# Fingerprint target
-smbx fingerprint 192.168.1.100
-
-# Full assessment (aggressive mode)
-smbx full 192.168.1.100 -m aggressive -o report.json
-
-# Run specific check
-smbx check 192.168.1.100 smb-v1-enabled
-
-# Run specific exploit
-smbx exploit 192.168.1.100 null_pivot -m safe
-
-# Enumerate shares
-smbx enum 192.168.1.100
-
-# List available modules
-smbx list --checks --exploits
+# Same for an entire subnet (CIDR):
+smbx 192.168.1.0/24
 ```
 
 ## Exploit Modules
