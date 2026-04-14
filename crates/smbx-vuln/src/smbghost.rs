@@ -59,3 +59,75 @@ impl VulnCheck for SmbGhostCheck {
         Ok(None)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use smbx_core::{Fingerprint, SmbDialect, OperatingSystem};
+    use crate::check::VulnCheck;
+
+    fn vulnerable_fingerprint() -> Fingerprint {
+        let mut fp = Fingerprint::new("10.0.0.5".to_string(), 445);
+        fp.dialect = SmbDialect::Smb311;
+        fp.os = OperatingSystem::Windows10;
+        fp
+    }
+
+    fn patched_windows10_fingerprint() -> Fingerprint {
+        // Windows10 but SMBv2 only (dialect too low for smbghost)
+        let mut fp = Fingerprint::new("10.0.0.5".to_string(), 445);
+        fp.dialect = SmbDialect::Smb21;
+        fp.os = OperatingSystem::Windows10;
+        fp
+    }
+
+    fn non_windows_fingerprint() -> Fingerprint {
+        let mut fp = Fingerprint::new("10.0.0.5".to_string(), 445);
+        fp.dialect = SmbDialect::Smb311;
+        fp.os = OperatingSystem::Linux;
+        fp
+    }
+
+    #[tokio::test]
+    async fn check_vulnerable_returns_finding() {
+        let check = SmbGhostCheck::new(Some(vulnerable_fingerprint()));
+        let result = check.check().await.unwrap();
+        assert!(result.is_some());
+        let finding = result.unwrap();
+        assert_eq!(finding.severity, smbx_core::Severity::Critical);
+        assert_eq!(finding.confidence, smbx_core::Confidence::Likely);
+        assert!(finding.cve.as_ref().map_or(false, |c| c.contains(&"CVE-2020-0796".to_string())));
+        assert_eq!(finding.exploit_module.as_deref(), Some("ghost_probe"));
+    }
+
+    #[tokio::test]
+    async fn check_patched_dialect_returns_none() {
+        let check = SmbGhostCheck::new(Some(patched_windows10_fingerprint()));
+        let result = check.check().await.unwrap();
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn check_non_windows_returns_none() {
+        let check = SmbGhostCheck::new(Some(non_windows_fingerprint()));
+        let result = check.check().await.unwrap();
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn check_no_fingerprint_returns_none() {
+        let check = SmbGhostCheck::new(None);
+        let result = check.check().await.unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn metadata() {
+        let check = SmbGhostCheck::new(None);
+        assert_eq!(check.id(), "smbghost-vulnerable");
+        assert!(!check.name().is_empty());
+        assert!(!check.description().is_empty());
+        assert!(check.cves().contains(&"CVE-2020-0796"));
+        assert_eq!(check.exploit_module(), Some("ghost_probe"));
+    }
+}

@@ -188,3 +188,202 @@ impl Ord for SmbDialect {
         self_val.cmp(&other_val)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ------------------------------------------------------------------
+    // SmbDialect
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn smb_dialect_as_str() {
+        assert_eq!(SmbDialect::Smb1.as_str(), "SMBv1");
+        assert_eq!(SmbDialect::Smb20.as_str(), "SMBv2.0");
+        assert_eq!(SmbDialect::Smb21.as_str(), "SMBv2.1");
+        assert_eq!(SmbDialect::Smb30.as_str(), "SMBv3.0");
+        assert_eq!(SmbDialect::Smb302.as_str(), "SMBv3.02");
+        assert_eq!(SmbDialect::Smb311.as_str(), "SMBv3.11");
+        assert_eq!(SmbDialect::Unknown.as_str(), "Unknown");
+    }
+
+    #[test]
+    fn smb_dialect_is_legacy_only_smb1() {
+        assert!(SmbDialect::Smb1.is_legacy());
+        assert!(!SmbDialect::Smb20.is_legacy());
+        assert!(!SmbDialect::Smb311.is_legacy());
+        assert!(!SmbDialect::Unknown.is_legacy());
+    }
+
+    #[test]
+    fn smb_dialect_supports_signing_not_unknown() {
+        assert!(SmbDialect::Smb1.supports_signing());
+        assert!(SmbDialect::Smb20.supports_signing());
+        assert!(SmbDialect::Smb311.supports_signing());
+        assert!(!SmbDialect::Unknown.supports_signing());
+    }
+
+    #[test]
+    fn smb_dialect_ordering() {
+        assert!(SmbDialect::Unknown < SmbDialect::Smb1);
+        assert!(SmbDialect::Smb1 < SmbDialect::Smb20);
+        assert!(SmbDialect::Smb20 < SmbDialect::Smb21);
+        assert!(SmbDialect::Smb21 < SmbDialect::Smb30);
+        assert!(SmbDialect::Smb30 < SmbDialect::Smb302);
+        assert!(SmbDialect::Smb302 < SmbDialect::Smb311);
+    }
+
+    #[test]
+    fn smb_dialect_ordering_ge() {
+        assert!(SmbDialect::Smb30 >= SmbDialect::Smb30);
+        assert!(SmbDialect::Smb311 > SmbDialect::Smb1);
+    }
+
+    #[test]
+    fn smb_dialect_is_copy() {
+        let d = SmbDialect::Smb1;
+        let _ = d;
+        let _ = d; // copy semantics
+    }
+
+    // ------------------------------------------------------------------
+    // OperatingSystem
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn os_as_str() {
+        assert_eq!(OperatingSystem::WindowsXp.as_str(), "Windows XP");
+        assert_eq!(OperatingSystem::Windows7.as_str(), "Windows 7");
+        assert_eq!(OperatingSystem::Windows10.as_str(), "Windows 10");
+        assert_eq!(OperatingSystem::Windows2019.as_str(), "Windows Server 2019");
+        assert_eq!(OperatingSystem::Linux.as_str(), "Linux");
+        assert_eq!(OperatingSystem::MacOS.as_str(), "macOS");
+        assert_eq!(OperatingSystem::Other.as_str(), "Unknown");
+    }
+
+    #[test]
+    fn os_is_windows_true_for_windows_variants() {
+        let windows_oses = [
+            OperatingSystem::WindowsXp,
+            OperatingSystem::WindowsVista,
+            OperatingSystem::Windows7,
+            OperatingSystem::Windows8,
+            OperatingSystem::Windows81,
+            OperatingSystem::Windows10,
+            OperatingSystem::Windows11,
+            OperatingSystem::Windows2003,
+            OperatingSystem::Windows2008,
+            OperatingSystem::Windows2008R2,
+            OperatingSystem::Windows2012,
+            OperatingSystem::Windows2012R2,
+            OperatingSystem::Windows2016,
+            OperatingSystem::Windows2019,
+            OperatingSystem::Windows2022,
+        ];
+        for os in &windows_oses {
+            assert!(os.is_windows(), "{} should be windows", os.as_str());
+        }
+    }
+
+    #[test]
+    fn os_is_windows_false_for_non_windows() {
+        assert!(!OperatingSystem::Linux.is_windows());
+        assert!(!OperatingSystem::MacOS.is_windows());
+        assert!(!OperatingSystem::Other.is_windows());
+    }
+
+    // ------------------------------------------------------------------
+    // Fingerprint
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn fingerprint_new_defaults() {
+        let fp = Fingerprint::new("192.168.1.1".to_string(), 445);
+        assert_eq!(fp.target, "192.168.1.1");
+        assert_eq!(fp.port, 445);
+        assert_eq!(fp.dialect, SmbDialect::Unknown);
+        assert_eq!(fp.os, OperatingSystem::Other);
+        assert!(!fp.signing_required);
+        assert!(!fp.encryption_required);
+        assert!(fp.capabilities.is_empty());
+    }
+
+    #[test]
+    fn fingerprint_vulnerable_to_eternalblue() {
+        let mut fp = Fingerprint::new("10.0.0.1".to_string(), 445);
+        fp.dialect = SmbDialect::Smb1;
+        fp.os = OperatingSystem::Windows7;
+        assert!(fp.is_vulnerable_to_eternalblue());
+    }
+
+    #[test]
+    fn fingerprint_not_vulnerable_eternalblue_wrong_dialect() {
+        let mut fp = Fingerprint::new("10.0.0.1".to_string(), 445);
+        fp.dialect = SmbDialect::Smb20;
+        fp.os = OperatingSystem::Windows7;
+        assert!(!fp.is_vulnerable_to_eternalblue());
+    }
+
+    #[test]
+    fn fingerprint_not_vulnerable_eternalblue_wrong_os() {
+        let mut fp = Fingerprint::new("10.0.0.1".to_string(), 445);
+        fp.dialect = SmbDialect::Smb1;
+        fp.os = OperatingSystem::Windows10;
+        assert!(!fp.is_vulnerable_to_eternalblue());
+    }
+
+    #[test]
+    fn fingerprint_eternalblue_all_affected_os() {
+        let affected = [
+            OperatingSystem::WindowsVista,
+            OperatingSystem::Windows7,
+            OperatingSystem::Windows8,
+            OperatingSystem::Windows2008,
+            OperatingSystem::Windows2008R2,
+            OperatingSystem::Windows2012,
+        ];
+        for os in &affected {
+            let mut fp = Fingerprint::new("h".to_string(), 445);
+            fp.dialect = SmbDialect::Smb1;
+            fp.os = *os;
+            assert!(
+                fp.is_vulnerable_to_eternalblue(),
+                "{} should be eternalblue-vulnerable",
+                os.as_str()
+            );
+        }
+    }
+
+    #[test]
+    fn fingerprint_vulnerable_to_smbghost() {
+        let mut fp = Fingerprint::new("10.0.0.1".to_string(), 445);
+        fp.dialect = SmbDialect::Smb30;
+        fp.os = OperatingSystem::Windows10;
+        assert!(fp.is_vulnerable_to_smbghost());
+    }
+
+    #[test]
+    fn fingerprint_smbghost_smb311_server2019() {
+        let mut fp = Fingerprint::new("10.0.0.1".to_string(), 445);
+        fp.dialect = SmbDialect::Smb311;
+        fp.os = OperatingSystem::Windows2019;
+        assert!(fp.is_vulnerable_to_smbghost());
+    }
+
+    #[test]
+    fn fingerprint_not_vulnerable_smbghost_wrong_os() {
+        let mut fp = Fingerprint::new("10.0.0.1".to_string(), 445);
+        fp.dialect = SmbDialect::Smb311;
+        fp.os = OperatingSystem::Windows7;
+        assert!(!fp.is_vulnerable_to_smbghost());
+    }
+
+    #[test]
+    fn fingerprint_not_vulnerable_smbghost_wrong_dialect() {
+        let mut fp = Fingerprint::new("10.0.0.1".to_string(), 445);
+        fp.dialect = SmbDialect::Smb21;
+        fp.os = OperatingSystem::Windows10;
+        assert!(!fp.is_vulnerable_to_smbghost());
+    }
+}

@@ -58,3 +58,60 @@ impl VulnCheck for SigningDisabledCheck {
         Ok(None)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use smbx_core::{Fingerprint, SmbDialect};
+    use crate::check::VulnCheck;
+
+    fn unsigned_fingerprint() -> Fingerprint {
+        let mut fp = Fingerprint::new("192.168.0.10".to_string(), 445);
+        fp.dialect = SmbDialect::Smb311;
+        fp.signing_required = false;
+        fp
+    }
+
+    fn signed_fingerprint() -> Fingerprint {
+        let mut fp = Fingerprint::new("192.168.0.10".to_string(), 445);
+        fp.dialect = SmbDialect::Smb311;
+        fp.signing_required = true;
+        fp
+    }
+
+    #[tokio::test]
+    async fn check_signing_disabled_returns_finding() {
+        let check = SigningDisabledCheck::new(Some(unsigned_fingerprint()));
+        let result = check.check().await.unwrap();
+        assert!(result.is_some());
+        let finding = result.unwrap();
+        assert_eq!(finding.severity, smbx_core::Severity::High);
+        assert_eq!(finding.confidence, smbx_core::Confidence::Confirmed);
+        assert_eq!(finding.exploit_module.as_deref(), Some("ntlm_relay"));
+        assert!(finding.affected_hosts.contains(&"192.168.0.10".to_string()));
+    }
+
+    #[tokio::test]
+    async fn check_signing_required_returns_none() {
+        let check = SigningDisabledCheck::new(Some(signed_fingerprint()));
+        let result = check.check().await.unwrap();
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn check_no_fingerprint_returns_none() {
+        let check = SigningDisabledCheck::new(None);
+        let result = check.check().await.unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn metadata() {
+        let check = SigningDisabledCheck::new(None);
+        assert_eq!(check.id(), "smb-signing-disabled");
+        assert!(!check.name().is_empty());
+        assert!(!check.description().is_empty());
+        assert!(check.cves().is_empty());
+        assert_eq!(check.exploit_module(), Some("ntlm_relay"));
+    }
+}

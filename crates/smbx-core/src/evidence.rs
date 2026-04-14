@@ -133,3 +133,150 @@ impl Evidence {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Utc;
+
+    #[test]
+    fn evidence_labels() {
+        let cases: Vec<(&str, Evidence)> = vec![
+            (
+                "file_list",
+                Evidence::FileList {
+                    share: "C$".to_string(),
+                    files: vec![],
+                },
+            ),
+            (
+                "file_sample",
+                Evidence::FileSample {
+                    path: "/etc/passwd".to_string(),
+                    size: 100,
+                    preview: vec![0x41],
+                },
+            ),
+            (
+                "crash_proof",
+                Evidence::CrashProof {
+                    timestamp: Utc::now(),
+                    crash_code: "BSOD".to_string(),
+                    details: "blue screen".to_string(),
+                },
+            ),
+            (
+                "memory_leak",
+                Evidence::MemoryLeak {
+                    leaked_bytes: vec![0xDE, 0xAD],
+                    location: "kernel".to_string(),
+                },
+            ),
+            (
+                "captured_hash",
+                Evidence::CapturedHash {
+                    hash: "aad3b435b51404eeaad3b435b51404ee".to_string(),
+                    username: "admin".to_string(),
+                    domain: "CORP".to_string(),
+                },
+            ),
+            (
+                "command_output",
+                Evidence::CommandOutput {
+                    command: "whoami".to_string(),
+                    output: "nt authority\\system".to_string(),
+                    timestamp: Utc::now(),
+                },
+            ),
+            (
+                "relay_success",
+                Evidence::RelaySuccess {
+                    target: "192.168.1.2".to_string(),
+                    service: "smb".to_string(),
+                    relayed_user: "CORP\\admin".to_string(),
+                },
+            ),
+            (
+                "privesc",
+                Evidence::PrivEsc {
+                    before_user: "user".to_string(),
+                    after_user: "root".to_string(),
+                    method: "token_impersonation".to_string(),
+                },
+            ),
+            (
+                "code_execution",
+                Evidence::CodeExecution {
+                    injected_process: "svchost.exe".to_string(),
+                    payload_hash: "deadbeef".to_string(),
+                    execution_timestamp: Utc::now(),
+                },
+            ),
+            (
+                "signing_disabled",
+                Evidence::SigningDisabled {
+                    dialect: "SMBv2".to_string(),
+                    capabilities: vec![],
+                },
+            ),
+            (
+                "null_session",
+                Evidence::NullSessionEstablished {
+                    shares_enumerated: vec!["IPC$".to_string()],
+                },
+            ),
+            (
+                "text_evidence",
+                Evidence::TextEvidence {
+                    label: "test".to_string(),
+                    content: "some output".to_string(),
+                },
+            ),
+            (
+                "rpc_response",
+                Evidence::RpcResponse {
+                    endpoint: r"\PIPE\srvsvc".to_string(),
+                    response_bytes: vec![0x01, 0x02],
+                },
+            ),
+            (
+                "named_pipe_access",
+                Evidence::NamedPipeAccess {
+                    pipe_name: r"\PIPE\svcctl".to_string(),
+                    data_written: 128,
+                },
+            ),
+            (
+                "shared_library_uploaded",
+                Evidence::SharedLibraryUploaded {
+                    share: "tmp".to_string(),
+                    path: "/tmp/evil.so".to_string(),
+                    size: 4096,
+                },
+            ),
+        ];
+
+        for (expected_label, evidence) in &cases {
+            assert_eq!(
+                evidence.label(),
+                *expected_label,
+                "label mismatch for {:?}",
+                expected_label
+            );
+        }
+    }
+
+    #[test]
+    fn share_file_fields() {
+        let sf = ShareFile {
+            name: "passwd".to_string(),
+            path: "/etc/passwd".to_string(),
+            size: Some(1234),
+            is_dir: false,
+            attributes: 0x20,
+        };
+        assert_eq!(sf.name, "passwd");
+        assert_eq!(sf.size.unwrap(), 1234);
+        assert!(!sf.is_dir);
+    }
+}

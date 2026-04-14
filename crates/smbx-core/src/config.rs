@@ -131,3 +131,92 @@ impl Default for EnumConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn scanner_config_defaults() {
+        let cfg = ScannerConfig::default();
+        assert_eq!(cfg.timeout_secs, 30);
+        assert_eq!(cfg.max_threads, 16);
+        assert_eq!(cfg.port_timeout_secs, 5);
+        assert_eq!(cfg.min_port, 445);
+        assert_eq!(cfg.max_port, 445);
+    }
+
+    #[test]
+    fn exploit_config_defaults() {
+        let cfg = ExploitConfig::default();
+        assert!(cfg.enabled);
+        assert_eq!(cfg.mode, "aggressive");
+        assert!(!cfg.auto_pivot);
+        assert_eq!(cfg.relay_listen_port, 0);
+        assert!(cfg.rce_require_flag);
+        assert!(cfg.targets.allowed_hosts.is_empty());
+    }
+
+    #[test]
+    fn output_config_defaults() {
+        let cfg = OutputConfig::default();
+        assert_eq!(cfg.format, "json");
+        assert!(cfg.file.is_none());
+        assert!(!cfg.verbose);
+        assert!(!cfg.include_raw_data);
+    }
+
+    #[test]
+    fn logging_config_defaults() {
+        let cfg = LoggingConfig::default();
+        assert_eq!(cfg.level, "info");
+        assert!(cfg.file.is_none());
+    }
+
+    #[test]
+    fn enum_config_defaults() {
+        let cfg = EnumConfig::default();
+        assert_eq!(cfg.samba_options.len(), 2);
+        assert!(cfg.samba_options.contains(&"interfaces=lo".to_string()));
+        assert!(cfg
+            .samba_options
+            .contains(&"bind interfaces only=no".to_string()));
+    }
+
+    #[test]
+    fn config_default_composes_sub_defaults() {
+        let cfg = Config::default();
+        assert_eq!(cfg.scanner.max_threads, 16);
+        assert_eq!(cfg.output.format, "json");
+        assert_eq!(cfg.logging.level, "info");
+    }
+
+    #[test]
+    fn exploit_targets_default_empty() {
+        let t = ExploitTargets::default();
+        assert!(t.allowed_hosts.is_empty());
+    }
+
+    #[test]
+    fn config_is_clone() {
+        let cfg = Config::default();
+        let _ = cfg.clone();
+    }
+
+    #[test]
+    fn config_serializes_to_json() {
+        let cfg = Config::default();
+        let json = serde_json::to_string(&cfg).expect("serialization failed");
+        assert!(json.contains("scanner"));
+        assert!(json.contains("exploit"));
+    }
+
+    #[test]
+    fn config_round_trips_json() {
+        let cfg = Config::default();
+        let json = serde_json::to_string(&cfg).unwrap();
+        let cfg2: Config = serde_json::from_str(&json).unwrap();
+        assert_eq!(cfg.scanner.max_threads, cfg2.scanner.max_threads);
+        assert_eq!(cfg.output.format, cfg2.output.format);
+    }
+}

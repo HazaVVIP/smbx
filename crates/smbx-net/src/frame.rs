@@ -649,3 +649,207 @@ impl Default for SmbFrameBuilder {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SMB1_MAGIC: &[u8] = b"\xffSMB";
+    const SMB2_MAGIC: &[u8] = b"\xfeSMB";
+
+    // ------------------------------------------------------------------
+    // Helper: check that bytes at position contain expected magic
+    // ------------------------------------------------------------------
+    fn has_magic(buf: &[u8], magic: &[u8]) -> bool {
+        buf.len() >= magic.len() && &buf[..magic.len()] == magic
+    }
+
+    #[test]
+    fn smb1_negotiate_starts_with_smb1_magic() {
+        let buf = SmbFrameBuilder::build_smb1_negotiate();
+        assert!(has_magic(&buf, SMB1_MAGIC), "SMBv1 negotiate must start with \\xffSMB");
+    }
+
+    #[test]
+    fn smb1_negotiate_command_byte() {
+        let buf = SmbFrameBuilder::build_smb1_negotiate();
+        // Byte at index 4 is the command
+        assert_eq!(buf[4], 0x72, "SMBv1 negotiate command should be 0x72");
+    }
+
+    #[test]
+    fn smb1_negotiate_minimum_length() {
+        let buf = SmbFrameBuilder::build_smb1_negotiate();
+        // Header (32) + word count (1) + byte count (2) = 35 bytes minimum
+        assert!(buf.len() >= 35);
+    }
+
+    #[test]
+    fn smb2_negotiate_starts_with_smb2_magic() {
+        let buf = SmbFrameBuilder::build_smb2_negotiate();
+        assert!(has_magic(&buf, SMB2_MAGIC), "SMBv2 negotiate must start with \\xfeSMB");
+    }
+
+    #[test]
+    fn smb2_negotiate_minimum_length() {
+        let buf = SmbFrameBuilder::build_smb2_negotiate();
+        // SMBv2 header is 64 bytes; body adds more
+        assert!(buf.len() >= 64);
+    }
+
+    #[test]
+    fn null_session_probe_starts_with_smb1_magic() {
+        let buf = SmbFrameBuilder::build_null_session_probe("192.168.1.1");
+        assert!(has_magic(&buf, SMB1_MAGIC));
+    }
+
+    #[test]
+    fn null_session_probe_session_setup_command() {
+        let buf = SmbFrameBuilder::build_null_session_probe("192.168.1.1");
+        // SESSION_SETUP_ANDX = 0x73
+        assert_eq!(buf[4], 0x73);
+    }
+
+    #[test]
+    fn ghost_probe_starts_with_smb2_magic() {
+        let buf = SmbFrameBuilder::build_ghost_probe();
+        assert!(has_magic(&buf, SMB2_MAGIC));
+    }
+
+    #[test]
+    fn ghost_probe_minimum_length() {
+        let buf = SmbFrameBuilder::build_ghost_probe();
+        assert!(buf.len() >= 64);
+    }
+
+    #[test]
+    fn eternalblue_probe_starts_with_smb1_magic() {
+        let buf = SmbFrameBuilder::build_eternalblue_probe();
+        assert!(has_magic(&buf, SMB1_MAGIC));
+    }
+
+    #[test]
+    fn eternalblue_probe_read_andx_command() {
+        let buf = SmbFrameBuilder::build_eternalblue_probe();
+        // READ_ANDX = 0x2E
+        assert_eq!(buf[4], 0x2E);
+    }
+
+    #[test]
+    fn eternal_romance_probe_starts_with_smb1_magic() {
+        let buf = SmbFrameBuilder::build_eternal_romance_probe();
+        assert!(has_magic(&buf, SMB1_MAGIC));
+    }
+
+    #[test]
+    fn eternal_romance_probe_write_andx_command() {
+        let buf = SmbFrameBuilder::build_eternal_romance_probe();
+        // WRITE_ANDX = 0x2F
+        assert_eq!(buf[4], 0x2F);
+    }
+
+    #[test]
+    fn eternal_champion_probe_starts_with_smb1_magic() {
+        let buf = SmbFrameBuilder::build_eternal_champion_probe();
+        assert!(has_magic(&buf, SMB1_MAGIC));
+    }
+
+    #[test]
+    fn eternal_champion_probe_transaction2_command() {
+        let buf = SmbFrameBuilder::build_eternal_champion_probe();
+        // TRANSACTION2 = 0x32
+        assert_eq!(buf[4], 0x32);
+    }
+
+    #[test]
+    fn eternal_synergy_probe_starts_with_smb1_magic() {
+        let buf = SmbFrameBuilder::build_eternal_synergy_probe();
+        assert!(has_magic(&buf, SMB1_MAGIC));
+    }
+
+    #[test]
+    fn eternal_synergy_probe_nt_transact_command() {
+        let buf = SmbFrameBuilder::build_eternal_synergy_probe();
+        // NT_TRANSACT = 0xA0
+        assert_eq!(buf[4], 0xA0);
+    }
+
+    #[test]
+    fn netapi_rpc_probe_dce_rpc_version() {
+        let buf = SmbFrameBuilder::build_netapi_rpc_probe();
+        // DCE/RPC bind: version major = 5, minor = 0
+        assert!(!buf.is_empty());
+        assert_eq!(buf[0], 5, "DCE/RPC major version should be 5");
+        assert_eq!(buf[1], 0, "DCE/RPC minor version should be 0");
+        assert_eq!(buf[2], 11, "DCE/RPC packet type should be 11 (bind)");
+    }
+
+    #[test]
+    fn smbleed_probe_starts_with_smb2_magic() {
+        let buf = SmbFrameBuilder::build_smbleed_probe();
+        assert!(has_magic(&buf, SMB2_MAGIC));
+    }
+
+    #[test]
+    fn smbleed_probe_contains_compression_magic() {
+        let buf = SmbFrameBuilder::build_smbleed_probe();
+        // The probe should contain the COMPRESSION_TRANSFORM magic b"\xfcSMB"
+        let comp_magic = b"\xfcSMB";
+        let found = buf.windows(4).any(|w| w == comp_magic);
+        assert!(found, "SMBleed probe should contain compression transform magic");
+    }
+
+    #[test]
+    fn sambacry_probe_starts_with_smb1_magic() {
+        let buf = SmbFrameBuilder::build_sambacry_probe();
+        assert!(has_magic(&buf, SMB1_MAGIC));
+    }
+
+    #[test]
+    fn sambacry_probe_open_andx_command() {
+        let buf = SmbFrameBuilder::build_sambacry_probe();
+        // OPEN_ANDX = 0x2D
+        assert_eq!(buf[4], 0x2D);
+    }
+
+    #[test]
+    fn samba_fruit_probe_starts_with_smb2_magic() {
+        let buf = SmbFrameBuilder::build_samba_fruit_probe();
+        assert!(has_magic(&buf, SMB2_MAGIC));
+    }
+
+    #[test]
+    fn samba_talloc_probe_starts_with_smb1_magic() {
+        let buf = SmbFrameBuilder::build_samba_talloc_probe();
+        assert!(has_magic(&buf, SMB1_MAGIC));
+    }
+
+    #[test]
+    fn samba_talloc_probe_session_setup_command() {
+        let buf = SmbFrameBuilder::build_samba_talloc_probe();
+        // SESSION_SETUP_ANDX = 0x73
+        assert_eq!(buf[4], 0x73);
+    }
+
+    #[test]
+    fn frame_builder_default_and_into_bytes() {
+        let builder = SmbFrameBuilder::default();
+        let bytes = builder.into_bytes();
+        assert!(bytes.is_empty());
+    }
+
+    #[test]
+    fn all_smb1_probes_are_non_empty() {
+        for (name, buf) in &[
+            ("negotiate", SmbFrameBuilder::build_smb1_negotiate()),
+            ("eternalblue", SmbFrameBuilder::build_eternalblue_probe()),
+            ("eternal_romance", SmbFrameBuilder::build_eternal_romance_probe()),
+            ("eternal_champion", SmbFrameBuilder::build_eternal_champion_probe()),
+            ("eternal_synergy", SmbFrameBuilder::build_eternal_synergy_probe()),
+            ("sambacry", SmbFrameBuilder::build_sambacry_probe()),
+            ("samba_talloc", SmbFrameBuilder::build_samba_talloc_probe()),
+        ] {
+            assert!(!buf.is_empty(), "{} probe should not be empty", name);
+        }
+    }
+}

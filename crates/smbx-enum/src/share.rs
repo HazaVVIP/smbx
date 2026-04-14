@@ -307,4 +307,114 @@ password:
         assert_eq!(shares[0].comment, "IPC Service (samba server)");
         assert_eq!(shares[0].share_type, ShareType::IPC);
     }
+
+    #[test]
+    fn parse_rpcclient_output_empty_returns_empty() {
+        let shares = ShareEnumerator::parse_rpcclient_output("");
+        assert!(shares.is_empty());
+    }
+
+    #[test]
+    fn parse_rpcclient_output_no_netname_lines_returns_empty() {
+        let output = "path: C:\\foo\npassword:\n";
+        let shares = ShareEnumerator::parse_rpcclient_output(output);
+        assert!(shares.is_empty());
+    }
+
+    #[test]
+    fn parse_rpcclient_disk_share_type() {
+        let output = "netname: BACKUP\nremark: Backup share\n";
+        let shares = ShareEnumerator::parse_rpcclient_output(output);
+        assert_eq!(shares.len(), 1);
+        assert_eq!(shares[0].share_type, ShareType::DiskTree);
+    }
+
+    #[test]
+    fn share_type_as_str() {
+        assert_eq!(ShareType::DiskTree.as_str(), "DISKTREE");
+        assert_eq!(ShareType::PrintQ.as_str(), "PRINTQ");
+        assert_eq!(ShareType::Device.as_str(), "DEVICE");
+        assert_eq!(ShareType::IPC.as_str(), "IPC");
+        assert_eq!(ShareType::Unknown.as_str(), "UNKNOWN");
+    }
+
+    #[test]
+    fn share_type_from_u32() {
+        assert_eq!(ShareType::from_u32(0), ShareType::DiskTree);
+        assert_eq!(ShareType::from_u32(1), ShareType::PrintQ);
+        assert_eq!(ShareType::from_u32(2), ShareType::Device);
+        assert_eq!(ShareType::from_u32(3), ShareType::IPC);
+        assert_eq!(ShareType::from_u32(99), ShareType::Unknown);
+        assert_eq!(ShareType::from_u32(0xFFFFFFFF), ShareType::Unknown);
+    }
+
+    #[test]
+    fn validate_target_empty_is_err() {
+        let result = ShareEnumerator::validate_target("");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn validate_target_ip_is_ok() {
+        assert!(ShareEnumerator::validate_target("192.168.1.1").is_ok());
+    }
+
+    #[test]
+    fn validate_target_ipv6_is_ok() {
+        assert!(ShareEnumerator::validate_target("[::1]").is_ok());
+    }
+
+    #[test]
+    fn validate_target_hostname_is_ok() {
+        assert!(ShareEnumerator::validate_target("my-server.local").is_ok());
+    }
+
+    #[test]
+    fn validate_target_special_chars_is_err() {
+        let result = ShareEnumerator::validate_target("bad target!");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn validate_target_semicolon_is_err() {
+        let result = ShareEnumerator::validate_target("host;rm -rf /");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn printer_comment_gives_printq_type() {
+        let output = "netname: SHARE1\nremark: This is a printer share\n";
+        let shares = ShareEnumerator::parse_rpcclient_output(output);
+        assert_eq!(shares[0].share_type, ShareType::PrintQ);
+    }
+
+    #[test]
+    fn shares_are_marked_accessible_by_default() {
+        let output = "netname: DATA\nremark: Data share\n";
+        let shares = ShareEnumerator::parse_rpcclient_output(output);
+        assert!(shares[0].accessible);
+    }
+
+    #[test]
+    fn fallback_shares_has_ipc_and_c_dollar() {
+        let shares = ShareEnumerator::fallback_shares();
+        assert_eq!(shares.len(), 2);
+        let names: Vec<&str> = shares.iter().map(|s| s.name.as_str()).collect();
+        assert!(names.contains(&"IPC$"));
+        assert!(names.contains(&"C$"));
+    }
+
+    #[test]
+    fn share_enumerator_new_has_default_samba_options() {
+        let enumerator = ShareEnumerator::new(10);
+        // Should have at least the default samba options
+        assert!(!enumerator.samba_options.is_empty());
+    }
+
+    #[test]
+    fn share_enumerator_with_custom_samba_options() {
+        let opts = vec!["client min protocol=NT1".to_string()];
+        let enumerator = ShareEnumerator::with_samba_options(5, opts.clone());
+        assert_eq!(enumerator.samba_options, opts);
+    }
 }

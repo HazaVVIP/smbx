@@ -59,3 +59,88 @@ impl VulnCheck for NullSessionCheck {
         Ok(None)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use smbx_core::{Fingerprint, SmbDialect};
+    use crate::check::VulnCheck;
+
+    fn smb1_fingerprint() -> Fingerprint {
+        let mut fp = Fingerprint::new("10.1.2.3".to_string(), 445);
+        fp.dialect = SmbDialect::Smb1;
+        fp.signing_required = false;
+        fp
+    }
+
+    fn smb2_unsigned_fingerprint() -> Fingerprint {
+        let mut fp = Fingerprint::new("10.1.2.3".to_string(), 445);
+        fp.dialect = SmbDialect::Smb21;
+        fp.signing_required = false;
+        fp
+    }
+
+    fn smb2_signed_fingerprint() -> Fingerprint {
+        let mut fp = Fingerprint::new("10.1.2.3".to_string(), 445);
+        fp.dialect = SmbDialect::Smb311;
+        fp.signing_required = true;
+        fp
+    }
+
+    fn unknown_dialect_fingerprint() -> Fingerprint {
+        let mut fp = Fingerprint::new("10.1.2.3".to_string(), 445);
+        fp.dialect = SmbDialect::Unknown;
+        fp.signing_required = false;
+        fp
+    }
+
+    #[tokio::test]
+    async fn check_smb1_returns_finding() {
+        let check = NullSessionCheck::new(Some(smb1_fingerprint()));
+        let result = check.check().await.unwrap();
+        assert!(result.is_some());
+        let finding = result.unwrap();
+        assert_eq!(finding.severity, smbx_core::Severity::Medium);
+        assert_eq!(finding.exploit_module.as_deref(), Some("null_pivot"));
+    }
+
+    #[tokio::test]
+    async fn check_smb2_unsigned_returns_finding() {
+        let check = NullSessionCheck::new(Some(smb2_unsigned_fingerprint()));
+        let result = check.check().await.unwrap();
+        assert!(result.is_some());
+    }
+
+    #[tokio::test]
+    async fn check_smb2_signed_returns_none() {
+        let check = NullSessionCheck::new(Some(smb2_signed_fingerprint()));
+        let result = check.check().await.unwrap();
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn check_unknown_dialect_returns_none() {
+        // Unknown dialect with signing_required=false: dialect==Unknown means
+        // the second condition (dialect != Unknown && !signing_required) is false
+        // and dialect==Smb1 is also false, so should return None.
+        let check = NullSessionCheck::new(Some(unknown_dialect_fingerprint()));
+        let result = check.check().await.unwrap();
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn check_no_fingerprint_returns_none() {
+        let check = NullSessionCheck::new(None);
+        let result = check.check().await.unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn metadata() {
+        let check = NullSessionCheck::new(None);
+        assert_eq!(check.id(), "null-session-enabled");
+        assert!(!check.name().is_empty());
+        assert!(!check.description().is_empty());
+        assert_eq!(check.exploit_module(), Some("null_pivot"));
+    }
+}

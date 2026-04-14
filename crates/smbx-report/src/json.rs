@@ -184,12 +184,89 @@ impl JsonReporter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use smbx_core::{Finding, Severity, Confidence};
+
+    fn sample_finding() -> Finding {
+        Finding::new("EternalBlue", "MS17-010 vulnerability")
+            .with_severity(Severity::Critical)
+            .with_confidence(Confidence::Confirmed)
+            .with_cve(vec!["CVE-2017-0144".to_string()])
+            .add_host("10.0.0.1".to_string())
+            .with_exploit_module("eternalblue".to_string())
+            .with_remediation("Apply MS17-010 patch".to_string())
+    }
 
     #[test]
-    fn test_json_generation() {
+    fn test_json_generation_empty() {
         let findings = vec![];
         let json = JsonReporter::generate_report(&findings, "192.168.1.1").unwrap();
         assert!(json.contains("192.168.1.1"));
         assert!(json.contains("findings"));
+    }
+
+    #[test]
+    fn test_json_generation_with_findings() {
+        let findings = vec![sample_finding()];
+        let json = JsonReporter::generate_report(&findings, "10.0.0.1").unwrap();
+        assert!(json.contains("10.0.0.1"));
+        assert!(json.contains("EternalBlue"));
+        assert!(json.contains("CVE-2017-0144"));
+        assert!(json.contains("critical"));
+    }
+
+    #[test]
+    fn test_json_report_summary_counts() {
+        let findings = vec![
+            Finding::new("F1", "d").with_severity(Severity::Critical),
+            Finding::new("F2", "d").with_severity(Severity::High),
+            Finding::new("F3", "d").with_severity(Severity::Medium),
+        ];
+        let json = JsonReporter::generate_report(&findings, "host").unwrap();
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(v["summary"]["total_findings"], 3);
+        assert_eq!(v["summary"]["critical"], 1);
+        assert_eq!(v["summary"]["high"], 1);
+        assert_eq!(v["summary"]["medium"], 1);
+    }
+
+    #[test]
+    fn test_minimal_generation_empty() {
+        let findings = vec![];
+        let json = JsonReporter::generate_minimal(&findings, "target").unwrap();
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(v["target"], "target");
+        assert!(v["findings"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_minimal_generation_with_finding() {
+        let findings = vec![sample_finding()];
+        let json = JsonReporter::generate_minimal(&findings, "target").unwrap();
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let arr = v["findings"].as_array().unwrap();
+        assert_eq!(arr.len(), 1);
+        assert_eq!(arr[0]["name"], "EternalBlue");
+        assert_eq!(arr[0]["severity"], "critical");
+        let cves = arr[0]["cve"].as_array().unwrap();
+        assert_eq!(cves[0], "CVE-2017-0144");
+    }
+
+    #[test]
+    fn test_json_report_contains_risk_score() {
+        let findings = vec![sample_finding()];
+        let json = JsonReporter::generate_report(&findings, "host").unwrap();
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let score_str = v["summary"]["overall_risk_score"].as_str().unwrap();
+        let score: f64 = score_str.parse().unwrap();
+        assert!(score > 0.0);
+    }
+
+    #[test]
+    fn test_json_finding_has_evidence_count() {
+        let findings = vec![sample_finding()];
+        let json = JsonReporter::generate_report(&findings, "host").unwrap();
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let f = &v["findings"][0];
+        assert_eq!(f["evidence_count"], 0);
     }
 }
