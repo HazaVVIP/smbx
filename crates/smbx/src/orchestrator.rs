@@ -12,11 +12,21 @@ use log::{info, warn};
 /// Orchestrates the full scanning pipeline
 pub struct Orchestrator {
     timeout_secs: u64,
+    /// Samba CLI options forwarded to the share enumerator (e.g. `interfaces=lo`).
+    samba_options: Vec<String>,
 }
 
 impl Orchestrator {
+    #[allow(dead_code)]
     pub fn new(timeout_secs: u64) -> Self {
-        Self { timeout_secs }
+        Self {
+            timeout_secs,
+            samba_options: smbx_core::EnumConfig::default().samba_options,
+        }
+    }
+
+    pub fn with_samba_options(timeout_secs: u64, samba_options: Vec<String>) -> Self {
+        Self { timeout_secs, samba_options }
     }
 
     /// Full scan pipeline: Scan → Fingerprint → Enumerate → VulnChecks → Exploitation
@@ -80,7 +90,10 @@ impl Orchestrator {
 
         // Step 3/5: Share enumeration
         println!("[3/5] Enumerating shares on {}:{}…", target, port);
-        let enumerator = ShareEnumerator::new(self.timeout_secs);
+        let enumerator = ShareEnumerator::with_samba_options(
+            self.timeout_secs,
+            self.samba_options.clone(),
+        );
         let enumerated_shares = match enumerator.enumerate_shares(target, port).await {
             Ok(shares) => {
                 info!("[Orchestrator] Enumerated {} share(s)", shares.len());

@@ -89,7 +89,10 @@ async fn main() -> anyhow::Result<()> {
     // Load configuration (config file is used for scanner/exploit defaults).
     let config = load_config(cli.config.as_deref());
 
-    let orchestrator = Orchestrator::new(config.scanner.timeout_secs);
+    let orchestrator = Orchestrator::with_samba_options(
+        config.scanner.timeout_secs,
+        config.enum_config.samba_options.clone(),
+    );
 
     match cli.command {
         Commands::Scan {
@@ -177,7 +180,10 @@ async fn main() -> anyhow::Result<()> {
                 d
             });
 
-            let orchestrator_with_timeout = Orchestrator::new(timeout);
+            let orchestrator_with_timeout = Orchestrator::with_samba_options(
+                timeout,
+                config.enum_config.samba_options.clone(),
+            );
             match orchestrator_with_timeout.full_scan(&target, port, exploit_mode, dialect).await {
                 Ok(findings) => {
                     println!("[+] Scan complete. Found {} findings", findings.len());
@@ -211,7 +217,7 @@ async fn main() -> anyhow::Result<()> {
             mode,
             rce,
             confirm,
-            timeout: _,
+            timeout,
         } => {
             if mode == "destructive" && !confirm {
                 println!("[!] Destructive mode requires --confirm flag");
@@ -229,7 +235,7 @@ async fn main() -> anyhow::Result<()> {
                 _ => ExploitMode::Safe,
             };
 
-            println!("[*] Running exploit: {} against {}:{}", exploit, target, port);
+            println!("[*] Running exploit: {} against {}:{} (timeout: {}s)", exploit, target, port, timeout);
 
             let registry = smbx_exploit::create_default_registry();
             match registry.run_exploit(&exploit, &target, port, exploit_mode).await {
