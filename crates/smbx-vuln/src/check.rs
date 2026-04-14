@@ -75,3 +75,92 @@ impl Default for VulnRegistry {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use async_trait::async_trait;
+
+    struct DummyCheck {
+        id: &'static str,
+        name: &'static str,
+    }
+
+    #[async_trait]
+    impl VulnCheck for DummyCheck {
+        fn id(&self) -> &str {
+            self.id
+        }
+
+        fn name(&self) -> &str {
+            self.name
+        }
+
+        fn description(&self) -> &str {
+            "dummy check for testing"
+        }
+
+        async fn check(&self) -> SmbxResult<Option<Finding>> {
+            Ok(None)
+        }
+    }
+
+    #[test]
+    fn registry_starts_empty() {
+        let reg = VulnRegistry::new();
+        assert!(reg.get_checks().is_empty());
+    }
+
+    #[test]
+    fn registry_default_is_empty() {
+        let reg = VulnRegistry::default();
+        assert!(reg.get_checks().is_empty());
+    }
+
+    #[test]
+    fn registry_register_and_count() {
+        let mut reg = VulnRegistry::new();
+        reg.register(Box::new(DummyCheck { id: "check-1", name: "Check One" }));
+        reg.register(Box::new(DummyCheck { id: "check-2", name: "Check Two" }));
+        assert_eq!(reg.get_checks().len(), 2);
+    }
+
+    #[test]
+    fn registry_find_by_id_found() {
+        let mut reg = VulnRegistry::new();
+        reg.register(Box::new(DummyCheck { id: "my-check", name: "My Check" }));
+        let found = reg.find_by_id("my-check");
+        assert!(found.is_some());
+        assert_eq!(found.unwrap().id(), "my-check");
+    }
+
+    #[test]
+    fn registry_find_by_id_not_found() {
+        let reg = VulnRegistry::new();
+        assert!(reg.find_by_id("nonexistent").is_none());
+    }
+
+    #[tokio::test]
+    async fn registry_run_all_returns_only_some_findings() {
+        struct FindingCheck;
+
+        #[async_trait]
+        impl VulnCheck for FindingCheck {
+            fn id(&self) -> &str { "finding-check" }
+            fn name(&self) -> &str { "Finding Check" }
+            fn description(&self) -> &str { "always returns a finding" }
+
+            async fn check(&self) -> SmbxResult<Option<Finding>> {
+                Ok(Some(Finding::new("test vuln", "desc")))
+            }
+        }
+
+        let mut reg = VulnRegistry::new();
+        reg.register(Box::new(FindingCheck));
+        reg.register(Box::new(DummyCheck { id: "d1", name: "D1" })); // returns None
+
+        let findings = reg.run_all().await.unwrap();
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].name, "test vuln");
+    }
+}

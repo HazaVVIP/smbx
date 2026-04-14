@@ -59,3 +59,61 @@ impl VulnCheck for SmbV1Check {
         Ok(None)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use smbx_core::{Fingerprint, SmbDialect, OperatingSystem};
+    use crate::check::VulnCheck;
+
+    fn smb1_fingerprint() -> Fingerprint {
+        let mut fp = Fingerprint::new("192.168.1.100".to_string(), 445);
+        fp.dialect = SmbDialect::Smb1;
+        fp.os = OperatingSystem::Windows7;
+        fp
+    }
+
+    fn smb2_fingerprint() -> Fingerprint {
+        let mut fp = Fingerprint::new("192.168.1.100".to_string(), 445);
+        fp.dialect = SmbDialect::Smb21;
+        fp.os = OperatingSystem::Windows10;
+        fp
+    }
+
+    #[tokio::test]
+    async fn check_smb1_returns_finding() {
+        let check = SmbV1Check::new(Some(smb1_fingerprint()));
+        let result = check.check().await.unwrap();
+        assert!(result.is_some());
+        let finding = result.unwrap();
+        assert_eq!(finding.severity, smbx_core::Severity::Critical);
+        assert_eq!(finding.confidence, smbx_core::Confidence::Confirmed);
+        assert!(finding.cve.as_ref().map_or(false, |c| c.contains(&"CVE-2017-0144".to_string())));
+        assert!(finding.affected_hosts.contains(&"192.168.1.100".to_string()));
+        assert_eq!(finding.exploit_module.as_deref(), Some("eternalblue"));
+    }
+
+    #[tokio::test]
+    async fn check_smb2_returns_none() {
+        let check = SmbV1Check::new(Some(smb2_fingerprint()));
+        let result = check.check().await.unwrap();
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn check_no_fingerprint_returns_none() {
+        let check = SmbV1Check::new(None);
+        let result = check.check().await.unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn metadata() {
+        let check = SmbV1Check::new(None);
+        assert_eq!(check.id(), "smb-v1-enabled");
+        assert_eq!(check.name(), "SMBv1 Protocol Enabled");
+        assert!(!check.description().is_empty());
+        assert!(check.cves().contains(&"CVE-2017-0144"));
+        assert_eq!(check.exploit_module(), Some("eternalblue"));
+    }
+}

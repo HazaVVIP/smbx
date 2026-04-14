@@ -184,3 +184,206 @@ impl FindingReport {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::evidence::Evidence;
+
+    // ------------------------------------------------------------------
+    // Severity
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn severity_cvss_ranges() {
+        assert_eq!(Severity::Critical.cvss_range(), (9.0, 10.0));
+        assert_eq!(Severity::High.cvss_range(), (7.0, 8.9));
+        assert_eq!(Severity::Medium.cvss_range(), (4.0, 6.9));
+        assert_eq!(Severity::Low.cvss_range(), (0.1, 3.9));
+        assert_eq!(Severity::Info.cvss_range(), (0.0, 0.0));
+    }
+
+    #[test]
+    fn severity_scores() {
+        assert_eq!(Severity::Critical.score(), 9.5);
+        assert_eq!(Severity::High.score(), 7.5);
+        assert_eq!(Severity::Medium.score(), 5.0);
+        assert_eq!(Severity::Low.score(), 2.0);
+        assert_eq!(Severity::Info.score(), 0.0);
+    }
+
+    #[test]
+    fn severity_is_copy() {
+        let s = Severity::High;
+        let _ = s;
+        let _ = s; // copy semantics
+    }
+
+    // ------------------------------------------------------------------
+    // Confidence
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn confidence_as_percent() {
+        assert_eq!(Confidence::Confirmed.as_percent(), 100.0);
+        assert_eq!(Confidence::Likely.as_percent(), 80.0);
+        assert_eq!(Confidence::Possible.as_percent(), 50.0);
+        assert_eq!(Confidence::Unknown.as_percent(), 0.0);
+    }
+
+    // ------------------------------------------------------------------
+    // Finding
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn finding_new_defaults() {
+        let f = Finding::new("Test finding", "A test description");
+        assert_eq!(f.name, "Test finding");
+        assert_eq!(f.description, "A test description");
+        assert_eq!(f.severity, Severity::Medium);
+        assert_eq!(f.confidence, Confidence::Unknown);
+        assert!(f.cve.is_none());
+        assert!(f.affected_hosts.is_empty());
+        assert!(f.evidence.is_empty());
+        assert!(f.exploit_module.is_none());
+        assert!(f.remediation.is_empty());
+        assert!(f.references.is_empty());
+    }
+
+    #[test]
+    fn finding_with_cve() {
+        let f = Finding::new("Test", "Desc")
+            .with_cve(vec!["CVE-2021-0001".to_string()]);
+        assert_eq!(f.cve.unwrap(), vec!["CVE-2021-0001"]);
+    }
+
+    #[test]
+    fn finding_with_severity() {
+        let f = Finding::new("Test", "Desc").with_severity(Severity::Critical);
+        assert_eq!(f.severity, Severity::Critical);
+    }
+
+    #[test]
+    fn finding_with_confidence() {
+        let f = Finding::new("Test", "Desc").with_confidence(Confidence::Likely);
+        assert_eq!(f.confidence, Confidence::Likely);
+    }
+
+    #[test]
+    fn finding_add_host_no_duplicates() {
+        let f = Finding::new("Test", "Desc")
+            .add_host("192.168.1.1".to_string())
+            .add_host("192.168.1.1".to_string())
+            .add_host("192.168.1.2".to_string());
+        assert_eq!(f.affected_hosts.len(), 2);
+        assert!(f.affected_hosts.contains(&"192.168.1.1".to_string()));
+        assert!(f.affected_hosts.contains(&"192.168.1.2".to_string()));
+    }
+
+    #[test]
+    fn finding_with_exploit_module() {
+        let f = Finding::new("Test", "Desc")
+            .with_exploit_module("eternalblue".to_string());
+        assert_eq!(f.exploit_module.unwrap(), "eternalblue");
+    }
+
+    #[test]
+    fn finding_with_remediation() {
+        let f = Finding::new("Test", "Desc")
+            .with_remediation("Patch now".to_string());
+        assert_eq!(f.remediation, "Patch now");
+    }
+
+    #[test]
+    fn finding_add_evidence() {
+        let ev = Evidence::TextEvidence {
+            label: "lbl".to_string(),
+            content: "content".to_string(),
+        };
+        let f = Finding::new("Test", "Desc").add_evidence(ev);
+        assert_eq!(f.evidence.len(), 1);
+    }
+
+    #[test]
+    fn finding_push_evidence_mut() {
+        let mut f = Finding::new("Test", "Desc");
+        f.push_evidence(Evidence::TextEvidence {
+            label: "l".to_string(),
+            content: "c".to_string(),
+        });
+        assert_eq!(f.evidence.len(), 1);
+    }
+
+    #[test]
+    fn finding_set_confidence_mut() {
+        let mut f = Finding::new("Test", "Desc");
+        f.set_confidence(Confidence::Confirmed);
+        assert_eq!(f.confidence, Confidence::Confirmed);
+    }
+
+    #[test]
+    fn finding_risk_score_medium_unknown() {
+        let f = Finding::new("Test", "Desc");
+        // (5.0 + 0.0) / 2.0 = 2.5
+        let score = f.risk_score();
+        assert!((score - 2.5).abs() < 0.01);
+    }
+
+    #[test]
+    fn finding_risk_score_critical_confirmed() {
+        let f = Finding::new("Test", "Desc")
+            .with_severity(Severity::Critical)
+            .with_confidence(Confidence::Confirmed);
+        // (9.5 + 100.0) / 2.0 = 54.75
+        let score = f.risk_score();
+        assert!((score - 54.75).abs() < 0.01);
+    }
+
+    #[test]
+    fn finding_id_is_unique() {
+        let f1 = Finding::new("A", "A");
+        let f2 = Finding::new("B", "B");
+        assert_ne!(f1.id, f2.id);
+    }
+
+    // ------------------------------------------------------------------
+    // FindingReport
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn finding_report_empty() {
+        let report = FindingReport::new(vec![]);
+        assert_eq!(report.total_findings(), 0);
+        assert_eq!(report.risk_score(), 0.0);
+        assert_eq!(report.total_critical, 0);
+    }
+
+    #[test]
+    fn finding_report_counts_severities() {
+        let findings = vec![
+            Finding::new("C1", "d").with_severity(Severity::Critical),
+            Finding::new("C2", "d").with_severity(Severity::Critical),
+            Finding::new("H1", "d").with_severity(Severity::High),
+            Finding::new("M1", "d").with_severity(Severity::Medium),
+            Finding::new("L1", "d").with_severity(Severity::Low),
+            Finding::new("I1", "d").with_severity(Severity::Info),
+        ];
+        let report = FindingReport::new(findings);
+        assert_eq!(report.total_critical, 2);
+        assert_eq!(report.total_high, 1);
+        assert_eq!(report.total_medium, 1);
+        assert_eq!(report.total_low, 1);
+        assert_eq!(report.total_info, 1);
+        assert_eq!(report.total_findings(), 6);
+    }
+
+    #[test]
+    fn finding_report_risk_score_average() {
+        let findings = vec![
+            Finding::new("A", "d").with_severity(Severity::Info),   // risk 0.0
+            Finding::new("B", "d").with_severity(Severity::Info),   // risk 0.0
+        ];
+        let report = FindingReport::new(findings);
+        assert_eq!(report.risk_score(), 0.0);
+    }
+}
