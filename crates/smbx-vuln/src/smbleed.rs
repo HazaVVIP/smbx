@@ -123,8 +123,8 @@ impl VulnCheck for SmBleedCheck {
             .with_remediation(
                 "Apply Microsoft security update KB4560960 (June 2020 Patch Tuesday). \
                  As a temporary mitigation, disable SMBv3 compression: \
-                 Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\\
-LanmanServer\\Parameters' DisableCompression -Type DWORD -Value 1."
+                 Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters' \
+                 DisableCompression -Type DWORD -Value 1."
                     .to_string(),
             );
 

