@@ -1,4 +1,4 @@
-use smbx_core::{ExploitMode, Evidence, Finding, Fingerprint, SmbDialect, SmbxResult};
+use smbx_core::{Evidence, Finding, Fingerprint, SmbDialect, SmbxResult};
 use smbx_enum::ShareEnumerator;
 use smbx_fingerprint::SmbFingerprinter;
 use smbx_scanner::SmbScanner;
@@ -37,12 +37,11 @@ impl Orchestrator {
         &self,
         target: &str,
         port: u16,
-        mode: ExploitMode,
         assume_dialect: Option<SmbDialect>,
     ) -> SmbxResult<Vec<Finding>> {
         let mut findings = Vec::new();
 
-        info!("[Orchestrator] Starting full scan of {}:{} in {:?} mode", target, port, mode);
+        info!("[Orchestrator] Starting full scan of {}:{}", target, port);
 
         // Step 1/5: Port scan
         println!("[1/5] Scanning {}:{} for open SMB port…", target, port);
@@ -159,20 +158,14 @@ impl Orchestrator {
 
         // Step 5/5: Exploitation — attempt for every finding that has an exploit module
         let exploit_count = findings.iter().filter(|f| f.exploit_module.is_some()).count();
-        println!(
-            "[5/5] Running {} exploit module(s) in {:?} mode…",
-            exploit_count, mode
-        );
-        info!(
-            "[Orchestrator] Step 5: Exploitation phase (mode: {:?}, {} exploit(s) to attempt)",
-            mode, exploit_count
-        );
+        println!("[5/5] Running {} exploit module(s)…", exploit_count);
+        info!("[Orchestrator] Step 5: Exploitation phase ({} exploit(s) to attempt)", exploit_count);
 
         let exploit_registry = create_default_registry();
 
         for finding in &mut findings {
             if let Some(exploit_id) = finding.exploit_module.clone() {
-                match exploit_registry.run_exploit(&exploit_id, target, port, mode).await {
+                match exploit_registry.run_exploit(&exploit_id, target, port).await {
                     Ok(result) => {
                         match result {
                             smbx_core::ExploitResult::Proven { evidence, ref message } => {
@@ -188,17 +181,14 @@ impl Orchestrator {
                                 warn!("[Orchestrator] Exploit {}: Inconclusive – {}", exploit_id, reason);
                             }
                             smbx_core::ExploitResult::Skipped { ref reason } => {
-                                // Log at info so the operator can see which exploits were skipped
-                                // and why (usually the current mode is too low).
                                 info!(
-                                    "[Orchestrator] Exploit {} skipped: {} (current mode: {:?})",
-                                    exploit_id, reason, mode
+                                    "[Orchestrator] Exploit {} skipped: {}",
+                                    exploit_id, reason
                                 );
                             }
                             smbx_core::ExploitResult::RequiresConsent { ref operation, ref reason } => {
                                 warn!(
-                                    "[Orchestrator] Exploit {} requires explicit consent \
-                                     (use --confirm with destructive mode): {} – {}",
+                                    "[Orchestrator] Exploit {} requires consent: {} – {}",
                                     exploit_id, operation, reason
                                 );
                             }
